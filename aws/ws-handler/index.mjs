@@ -218,6 +218,18 @@ async function broadcastState(room, event) {
   await Promise.all(roomAudience(room).map((id) => sendTo(id, msg)));
 }
 
+// Tell each person in line exactly where they stand, and how many seats a
+// rematch would actually free. `missed` marks the moment a rematch started
+// without them.
+async function broadcastQueue(room, missed = false) {
+  const queue = (room.watchers || []).filter((w) => w.wantsIn);
+  if (!queue.length) return;
+  const seats = Math.max(0, MAX_ROOM_PLAYERS - (room.players || []).length);
+  await Promise.all(queue.map((w, i) => sendTo(w.connectionId, {
+    type: 'inline', v: GAME_VERSION, on: true, pos: i + 1, seats, missed,
+  })));
+}
+
 async function broadcastWatchers(room) {
   const msg = { type: 'watchers', v: GAME_VERSION, n: (room.watchers || []).length };
   await Promise.all(roomAudience(room).map((id) => sendTo(id, msg)));
@@ -449,7 +461,10 @@ async function onMessage(connId, msg, ip) {
         w.wantsIn = on;
         return true;
       });
-      if (room && out === true) await sendTo(connId, { type: 'inline', v: GAME_VERSION, on });
+      if (room && out === true) {
+        if (!on) await sendTo(connId, { type: 'inline', v: GAME_VERSION, on: false });
+        await broadcastQueue(room); // positions shift for everyone behind them
+      }
       return;
     }
 
@@ -731,6 +746,7 @@ async function onMessage(connId, msg, ip) {
             code: room.code, you: p.idx, host: room.host, token: p.token,
           });
         }));
+        await broadcastQueue(room, true); // whoever is still waiting learns they missed this one
         await broadcastState(room, { kind: 'start' });
         await refreshTables(room);
         await broadcastWatchers(room); // promotions may have emptied the gallery
@@ -760,7 +776,10 @@ async function onDisconnect(connId) {
       r.watchers = (r.watchers || []).filter((w) => w.connectionId !== connId);
       return r.watchers.length !== before;
     });
-    if (wr && wout === true) await broadcastWatchers(wr);
+    if (wr && wout === true) {
+      await broadcastWatchers(wr);
+      await broadcastQueue(wr); // the rest move up a place
+    }
   }
 
   const conn = await getItem(`CONN#${connId}`);

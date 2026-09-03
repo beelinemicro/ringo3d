@@ -380,6 +380,66 @@ try {
     console.log('open tables: live list for everyone ✔');
   }
 
+  // --- the queue for the next game: position, re-numbering, missing out ---
+  {
+    const host = await client();
+    host.sendJ({ type: 'create', name: 'Host' });
+    const seat = await host.waitFor('lobby');
+    const mate = await client();
+    mate.sendJ({ type: 'join', code: seat.code, name: 'Mate' });
+    await host.waitFor('lobby', (m) => m.players.length === 2);
+    host.sendJ({ type: 'start' });
+    await host.waitFor('state', (m) => m.event?.kind === 'start');
+
+    // Five spectators line up behind two seated players: three seats free.
+    const q = [];
+    for (let i = 0; i < 5; i++) {
+      const w = await client();
+      w.sendJ({ type: 'watch', code: seat.code, name: 'Fan' + i });
+      await w.waitFor('watching');
+      w.sendJ({ type: 'joinnext', on: true });
+      q.push(w);
+    }
+    for (let i = 0; i < 5; i++) {
+      const m = await q[i].waitFor('inline', (x) => x.on === true && x.pos === i + 1);
+      assert.equal(m.seats, 3, 'everyone is told how many seats a rematch frees');
+    }
+
+    // The one at the front changes their mind; the rest move up.
+    q[0].sendJ({ type: 'joinnext', on: false });
+    await q[0].waitFor('inline', (m) => m.on === false);
+    await q[1].waitFor('inline', (m) => m.pos === 1);
+    await q[4].waitFor('inline', (m) => m.pos === 4);
+
+    // Play it out; the rematch seats three of the four still waiting.
+    let over = null;
+    for (let tick = 0; tick < 4000 && !over; tick++) {
+      const m = host.last('state');
+      if (m?.state.phase === 'over') { over = m; break; }
+      const who = m.state.current === 0 ? host : mate;
+      if (m.state.phase === 'roll') who.sendJ({ type: 'roll' });
+      else {
+        const cells = selectableCells(m.state);
+        if (cells.length) who.sendJ({ type: 'place', cell: cells[0] });
+        else who.sendJ({ type: 'roll' });
+      }
+      await sleep(12);
+    }
+    assert.ok(over, 'the game reached a winner');
+    host.sendJ({ type: 'again' });
+
+    const seated = [q[1], q[2], q[3]];
+    for (const w of seated) await w.waitFor('rejoined');
+    // The fifth misses out, and is told so along with their new place.
+    const missed = await q[4].waitFor('inline', (m) => m.missed === true);
+    assert.deepEqual([missed.on, missed.pos, missed.seats], [true, 1, 0],
+      'the one left behind stays in line, moves to the front, and sees no seats free');
+    assert.equal(q[4].last('rejoined'), undefined, 'and was not seated');
+
+    [host, mate, ...q].forEach((w) => w.close());
+    console.log('next-game queue: position, re-numbering, missing out ✔');
+  }
+
   // --- spectator mode: watch, receive broadcasts, react, leave ---
   {
     const host = await client();

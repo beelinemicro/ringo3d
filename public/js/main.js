@@ -271,7 +271,14 @@ function ensureCube() {
 function setupGameControls() {
   const online = mode === 'online' || mode === 'watch';
   $('react-bar').classList.toggle('hidden', !online);
-  $('btn-joinnext').classList.toggle('hidden', mode !== 'watch');
+  const watching = mode === 'watch';
+  $('btn-joinnext').classList.toggle('hidden', !watching);
+  // Keep the queue note across a rematch — a spectator who missed out is
+  // still in line, and that message arrives just before the new board does.
+  if (!watching) {
+    $('queue-note').textContent = '';
+    $('queue-note').classList.add('hidden');
+  }
   $('watch-count').classList.add('hidden'); // re-shown by the next watchers broadcast
 }
 
@@ -774,21 +781,26 @@ function winTitle(st) {
 
 function winSub(st, twister) {
   const n = st?.winLines?.length || 1;
-  const name = st.players[st.winner].name;
+  const name = st.players[st.winner]?.name || 'The winner';
   const how = n >= 2 ? `${name} wins with a legendary ${n}-line finish!` : `${name} wins!`;
   if (twister === null || twister === undefined) return how;
   if (twister === st.winner) return `${how} Finished with a twist!`;
-  return `${how} Handed over by ${st.players[twister].name}'s twist!`;
+  return `${how} Handed over by ${st.players[twister]?.name || 'someone'}'s twist!`;
 }
 
 function endGame(winnerIdx, twister) {
   setFocusLayer(null);
+  // Hold on to the finished board: online, a rematch can replace `state`
+  // inside this delay, and the banner must describe the game that just
+  // ended — or not appear at all, if the next one has already begun.
+  const finished = state;
   setTimeout(() => {
+    if (state !== finished || finished.winner === null) return;
     shakeScreen(true);
-    showBanner(winTitle(state), winSub(state, twister), winnerIdx);
-    const n = state.winLines?.length || 1;
+    showBanner(winTitle(finished), winSub(finished, twister), winnerIdx);
+    const n = finished.winLines?.length || 1;
     // Watchers celebrate every winner — they have no dog in the fight.
-    const lost = (mode === 'ai' && state.players[winnerIdx].isBot)
+    const lost = (mode === 'ai' && finished.players[winnerIdx].isBot)
       || (mode === 'online' && winnerIdx !== net?.myIndex);
     voice.win(n);
     if (lost) {
@@ -1136,14 +1148,9 @@ function handleServer(msg) {
       break;
     }
 
-    case 'inline': {
-      const b = $('btn-joinnext');
-      b.dataset.on = msg.on ? '1' : '';
-      b.textContent = msg.on
-        ? '✔ In line for the next game — tap to step out'
-        : '🙋 Play in the next game';
+    case 'inline':
+      renderQueue(msg);
       break;
-    }
 
     case 'error':
       onlineStatus(msg.message);
@@ -1377,6 +1384,39 @@ $('btn-joinnext').addEventListener('click', () => {
   sfx.click();
   send({ type: 'joinnext', on: !$('btn-joinnext').dataset.on });
 });
+
+const ordinal = (n) => {
+  const tail = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return n + (tail[(v - 20) % 10] || tail[v] || tail[0]);
+};
+
+// Where this spectator stands in line: the button carries the position, the
+// note under it says what that actually means.
+function renderQueue(msg) {
+  const b = $('btn-joinnext');
+  const note = $('queue-note');
+  if (!msg.on) {
+    b.dataset.on = '';
+    b.textContent = '🙋 Play in the next game';
+    note.classList.add('hidden');
+    return;
+  }
+  b.dataset.on = '1';
+  b.textContent = `✔ ${ordinal(msg.pos)} in line — tap to step out`;
+  const say = [];
+  if (msg.missed) say.push('That game filled up without you.');
+  if (msg.seats === 0) {
+    say.push('The table is full, so a seat only opens if someone leaves.');
+  } else if (msg.pos > msg.seats) {
+    say.push(`Only ${msg.seats} seat${msg.seats === 1 ? '' : 's'} free next game, so you're waiting for the one after.`);
+  } else {
+    say.push("You're in for the next game.");
+  }
+  note.textContent = say.join(' ');
+  note.classList.remove('hidden');
+  if (msg.missed) sfx.pass();
+}
 
 // One tap to send the room to whoever you want to play with: native share
 // sheet where the browser has one (phones), clipboard everywhere else.

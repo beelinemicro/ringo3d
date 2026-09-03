@@ -1486,7 +1486,18 @@ body::before {
     gap: 8px 10px;
   }
   /* The twist picker stands in for the dice, the buttons and the message. */
-  .side-panel.twisting .message, .side-panel.twisting .react-bar { display: none; }
+  .side-panel.twisting .message, .side-panel.twisting /* Where a spectator stands in line for the next game. */
+.queue-note {
+  flex-basis: 100%;
+  margin: 0;
+  text-align: center;
+  font-size: 0.88rem;
+  line-height: 1.35;
+  color: #ffe9a8;
+  opacity: 0.9;
+}
+
+.react-bar { display: none; }
   .dice-area { gap: 10px; padding: 12px 12px 16px; border-radius: 18px; outline-offset: -7px; }
   .die { --die: 50px; --half: 25px; }
   .die::after { bottom: -9px; height: 9px; }

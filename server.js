@@ -162,6 +162,23 @@ function broadcast(room, msg) {
   room.watchers.forEach((ws) => sendTo(ws, msg));
 }
 
+// Everyone waiting for a seat, oldest first — that's the order they get one.
+function queueOf(room) {
+  return room.watchers.filter((w) => w.wantsIn);
+}
+
+const seatsFree = (room) => Math.max(0, MAX_ROOM_PLAYERS - room.players.length);
+
+// Tell each person in line exactly where they stand, and how many seats a
+// rematch would actually free. `missed` marks the moment a rematch started
+// without them.
+function broadcastQueue(room, missed = false) {
+  const seats = seatsFree(room);
+  queueOf(room).forEach((w, i) => sendTo(w, {
+    type: 'inline', v: GAME_VERSION, on: true, pos: i + 1, seats, missed,
+  }));
+}
+
 function broadcastWatchers(room) {
   broadcast(room, { type: 'watchers', v: GAME_VERSION, n: room.watchers.length });
 }
@@ -278,6 +295,7 @@ wss.on('connection', (ws, req) => {
       if (r) {
         r.watchers = r.watchers.filter((w) => w !== ws);
         broadcastWatchers(r);
+        broadcastQueue(r); // the rest move up a place
       }
     }
     handleLeave(ws);
@@ -407,9 +425,11 @@ function handleMessage(ws, msg) {
 
     // A watcher queues (or un-queues) for a seat in the next game.
     case 'joinnext': {
-      if (!ws.watchCode || !rooms.get(ws.watchCode)) return;
+      const r = ws.watchCode ? rooms.get(ws.watchCode) : null;
+      if (!r) return;
       ws.wantsIn = !!msg.on;
-      sendTo(ws, { type: 'inline', v: GAME_VERSION, on: ws.wantsIn });
+      if (!ws.wantsIn) sendTo(ws, { type: 'inline', v: GAME_VERSION, on: false });
+      broadcastQueue(r); // positions shift for everyone behind them
       break;
     }
 
@@ -554,6 +574,7 @@ function handleMessage(ws, msg) {
           code: room.code, you: w.playerIdx, host: room.host, token,
         });
       });
+      broadcastQueue(room, true); // whoever is still waiting learns they missed this one
       room.firstPlayer = (room.firstPlayer + 1) % room.players.length;
       const players = room.players.map((p) => ({ name: p.name, isBot: p.isBot, disconnected: p.disconnected }));
       room.state = newGame(players, room.firstPlayer);
