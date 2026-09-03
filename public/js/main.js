@@ -860,8 +860,13 @@ $('btn-quit').addEventListener('click', () => { sfx.click(); quitToMenu(); });
 function quitToMenu() {
   voice.stopAll();
   send({ type: 'leave' }); // frees a lobby seat for real (vs. a phone blip)
+  // Stepping out of a game still in play: the server keeps the seat for an
+  // hour, so keep the token too and offer the way back on the menu. Anything
+  // else (a finished game, a lobby seat given up) really is done with.
+  const steppingOut = mode === 'online' && state && state.phase !== 'over';
   if (net) { clearInterval(net.keepalive); net.ws.onclose = null; net.ws.close(); net = null; }
-  clearSeat(); // leaving on purpose — don't auto-rejoin this game later
+  if (steppingOut) markSteppedOut();
+  else clearSeat();
   watchInfo = null;
   rejoinAttempts = 0;
   stateQueue.length = 0;
@@ -872,7 +877,14 @@ function quitToMenu() {
   $('banner').classList.add('hidden');
   confettiStop($('confetti'));
   show('screen-menu');
+  refreshRejoinButton();
 }
+
+$('btn-rejoin').addEventListener('click', () => {
+  sfx.click();
+  $('btn-rejoin').textContent = 'Rejoining…';
+  if (!rejoinSavedSeat()) refreshRejoinButton();
+});
 
 // ---------- sound toggle ----------
 
@@ -926,6 +938,33 @@ function savedSeat() {
 
 function clearSeat() {
   localStorage.removeItem('ringo3dSeat');
+}
+
+// Leaving a game in progress on purpose. The server holds the chair either
+// way, so keep the claim to it — just remember this was deliberate, so we
+// offer the way back instead of yanking them into it on the next visit.
+function markSteppedOut() {
+  const seat = savedSeat();
+  if (seat) localStorage.setItem('ringo3dSeat', JSON.stringify({ ...seat, left: true }));
+}
+
+// The menu's way back into a game whose seat is still being held.
+function refreshRejoinButton() {
+  const b = $('btn-rejoin');
+  if (!b) return;
+  const seat = savedSeat();
+  const busyElsewhere = mode === 'online' || mode === 'watch';
+  b.classList.toggle('hidden', !seat || busyElsewhere);
+  if (seat) b.textContent = '↩ Rejoin your game';
+  fitMenu();
+}
+
+function rejoinSavedSeat() {
+  const seat = savedSeat();
+  if (!seat) { refreshRejoinButton(); return false; }
+  rejoinAttempts = 1;
+  connectGame({ type: 'rejoin', code: seat.code, token: seat.token });
+  return true;
 }
 
 let rejoinAttempts = 0;
@@ -1167,7 +1206,8 @@ function handleServer(msg) {
       net.code = msg.code;
       net.myIndex = msg.you;
       net.isHost = msg.you === msg.host;
-      saveSeat(msg.code, msg.token);
+      saveSeat(msg.code, msg.token); // back in the chair; no longer stepped out
+      refreshRejoinButton();
       state = null;
       ensureCube();
       cube.reset();
@@ -1188,6 +1228,16 @@ function handleServer(msg) {
         $('btn-banner-again').classList.add('hidden');
       } else if (wasInLobby) {
         show('screen-menu');
+      } else {
+        // A rejoin tried from the menu: that game is over or long gone.
+        mode = null;
+        const b = $('btn-rejoin');
+        if (!b.classList.contains('hidden')) {
+          b.textContent = 'That game has finished';
+          setTimeout(refreshRejoinButton, 2500);
+        } else {
+          refreshRejoinButton();
+        }
       }
       break;
     }
@@ -1633,6 +1683,18 @@ if ('serviceWorker' in navigator) {
 }
 
 startPresence();
+
+// A seat still held from last time: reclaim it straight away after a reload
+// or a crash, or offer the way back if they stepped out on purpose.
+{
+  const seat = savedSeat();
+  // Straight back in after a reload or a crash. A seat left on purpose, or
+  // one hours old, waits behind the button instead — nobody wants to be
+  // dropped into last night's finished game on opening the site.
+  const fresh = seat && Date.now() - seat.ts < 2 * 3600 * 1000;
+  if (fresh && !seat.left) rejoinSavedSeat();
+  else refreshRejoinButton();
+}
 
 // Arriving by invite link (?join=CODE): straight to the join form.
 {

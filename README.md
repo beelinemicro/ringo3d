@@ -79,6 +79,23 @@ There is deliberately no leaderboard and no chat. Names are typed per game,
 sanitized to 14 characters and never stored; reactions are a fixed list of
 six emoji. Nothing a player types outlives the room.
 
+## Getting back into a game
+
+The server holds a player's seat for an hour after they drop, marks them
+away and skips their turns, so backing out is never the end of their game.
+The client claims it back three ways:
+
+- **A reload or a crash** reclaims the seat on the next page load, straight
+  back into the game with the board as they left it.
+- **Tapping Menu during a game** keeps the seat token rather than discarding
+  it, and the menu then offers **"Rejoin your game"**.
+- **A dropped connection** already retried in place, and still does.
+
+A seat left on purpose, or one more than two hours old, waits behind the
+button instead of grabbing them on load — nobody wants to open the site and
+land in last night's finished game. If the room has since expired the button
+says so and clears itself.
+
 ## Abuse limits
 
 The game is open to anyone, so a bot could otherwise hold thousands of
