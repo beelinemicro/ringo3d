@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Privacy — RINGO 3D</title>
+  <meta name="description" content="What RINGO 3D stores, and what it doesn't. No accounts, no ads, no analytics, no tracking." />
+  <meta name="theme-color" content="#145238" />
+  <link rel="icon" href="icons/favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Lilita+One&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    body { display: block; }
+    .doc { max-width: 720px; margin: 0 auto; padding: 32px 20px 64px; }
+    .doc h1 { font-family: 'Lilita One', 'Fredoka', sans-serif; font-weight: 400; font-size: clamp(2.2rem, 8vw, 3rem); margin: 0 0 6px; color: #fff7e0; text-shadow: 0 2px 0 #b59a58, 0 8px 20px rgba(0,0,0,0.5); }
+    .doc .sub { margin: 0 0 28px; opacity: 0.75; font-style: italic; }
+    .doc h2 { font-family: 'Lilita One', 'Fredoka', sans-serif; font-weight: 400; font-size: 1.35rem; letter-spacing: 0.02em; color: var(--gold); margin: 30px 0 10px; }
+    .doc p, .doc li { line-height: 1.6; color: #eaf4e6; }
+    .doc ul { padding-left: 20px; }
+    .doc li { margin-bottom: 8px; }
+    .doc a { color: var(--gold); }
+    .doc .lead { font-size: 1.12rem; padding: 16px 18px; border-radius: 16px; background: rgba(0,0,0,0.28); border: 1px solid rgba(255,211,77,0.3); }
+    .doc footer { margin-top: 40px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,0.12); font-size: 0.92rem; opacity: 0.75; }
+  </style>
+</head>
+<body>
+  <main class="doc">
+    <h1>Privacy</h1>
+    <p class="sub">RINGO 3D &middot; last updated 3 September 2026</p>
+
+    <p class="lead">RINGO 3D has no accounts, no advertising, no analytics and no tracking of any kind.
+    Nothing you type is kept after the game it belongs to has finished, and nothing recorded identifies you.</p>
+
+    <h2>What stays on your own device</h2>
+    <p>The game remembers a few small things in your browser's local storage. These never leave your
+    device, and clearing your browser data removes them:</p>
+    <ul>
+      <li>The name you last played under, so you don't retype it.</li>
+      <li>The computer-opponent difficulty you last chose.</li>
+      <li>Whether the music is on or off.</li>
+      <li>A seat token, so you can rejoin a game you were already in.</li>
+      <li>A marker noting that a game is open in this tab.</li>
+    </ul>
+
+    <h2>What reaches the server, and for how long</h2>
+    <p>Only when you play online. Pass &amp; Play and games against the computer never contact a server at all.</p>
+    <ul>
+      <li><strong>The name you type</strong> and, if you open a room, <strong>the room's name</strong>.
+      Other players in that room see them. They are held only while the room exists and are deleted with it:
+      within an hour for a room that never started, and within a day for a game in progress.</li>
+      <li><strong>The moves you make</strong>, so everyone in the room sees the same board. Deleted with the room.</li>
+      <li><strong>Emoji reactions</strong>, chosen from a fixed set of six. They are passed along and never stored.</li>
+    </ul>
+    <p>There is no chat in RINGO 3D. There is nowhere to type free text to another player apart from your
+    own name and, if you host one, your room's name.</p>
+
+    <h2>What we count</h2>
+    <p>The server records a timestamp each time the site is opened, so we know roughly how many games are
+    being played. That record holds no address, no device identifier and nothing else at all. It cannot be
+    connected to you or to any other visit.</p>
+    <p>To stop one machine flooding the game with junk rooms, the server keeps a short-lived count of how
+    many rooms an address has opened recently. The address itself is never written down: it is put through
+    a one-way hash first, and the count is discarded within a day.</p>
+
+    <h2>Children</h2>
+    <p>RINGO 3D is a family board game and its content suits all ages, but it is not directed at children
+    under 13, and we do not knowingly collect anything from them. The only thing a player provides is a
+    display name, which they choose themselves and which disappears with the room.</p>
+
+    <h2>Other companies</h2>
+    <ul>
+      <li><strong>Amazon Web Services</strong> hosts the game and the rooms, in the United States.</li>
+      <li><strong>Google Fonts</strong> serves the two typefaces the page uses. Loading them means your
+      browser contacts Google's servers, which sees your IP address as it would for any website you visit.
+      We send Google nothing about you beyond that request.</li>
+    </ul>
+    <p>Nothing is sold, and nothing is shared with anyone for advertising. There are no advertising or
+    analytics libraries in the game.</p>
+
+    <h2>Your choices</h2>
+    <p>Because nothing is stored about you, there is no account to delete and nothing to request. Clearing
+    your browser data removes everything held on your device. Leaving a room, or simply letting it expire,
+    removes the name you played under.</p>
+
+    <h2>Changes</h2>
+    <p>If this ever changes, the date at the top of this page changes with it.</p>
+
+    <h2>Getting in touch</h2>
+    <p>Questions about any of this: <a href="mailto:steve@beelinemicrosystems.com">steve@beelinemicrosystems.com</a></p>
+
+    <footer>
+      RINGO is an original game invented by <strong>Wendelin Leinweber</strong>.
+      &copy; 2026 Bee Line Microsystems LLC. &middot; <a href="/">Back to the game</a>
+    </footer>
+  </main>
+</body>
+</html>

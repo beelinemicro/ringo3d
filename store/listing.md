@@ -1,0 +1,128 @@
+# Google Play listing — RINGO 3D
+
+Everything to paste into Play Console, plus the answers to the declarations.
+Character counts are checked against Play's limits.
+
+## App name (limit 30)
+
+    RINGO 3D
+
+Alternative, if you'd rather the title carry search terms, since nobody is
+looking for the name yet:
+
+    RINGO 3D: Five in a Row
+
+## Short description (limit 80)
+
+    Five in a row through a 5x5x5 cube. Roll, place your rings, twist the cube.
+
+## Full description (limit 4000)
+
+Dad's board game, cubed.
+
+RINGO started at a kitchen table: a 5x5 grid, two dice, and a pile of coloured
+rings. Wendelin Leinweber drew it up, lettered the columns R-I-N-G-O, numbered
+the rows 1 to 5, and put a wild star on each die. The family has been shouting
+"RINGO!" at each other ever since.
+
+RINGO 3D lifts that board into a cube. Five layers of glass stacked front to
+back, 125 spaces, and a third die that picks the layer by colour.
+
+HOW IT PLAYS
+
+Roll three dice: a letter, a number and a layer colour. Place a ring of your
+colour where they meet. Each die has a wild face, so you choose that part
+yourself, and three wilds means anywhere in the cube.
+
+Land on someone else's ring and you choose: steal the spot, or roll again.
+Land on your own and you simply roll again. You never lose your turn.
+
+Or don't roll at all. Twist the cube instead. Turn any layer, column or row a
+quarter turn, Rubik's style, and every ring in that slice swings somewhere
+new. A twist can finish your line. It can also finish someone else's, and they
+win, which is exactly as funny as it sounds.
+
+TWO WAYS TO WIN
+
+Five of your rings in any straight line through the cube: across, down, front
+to back, diagonally through a layer, or corner to corner through the middle.
+Or claim all four corners of any outer face. Either way, shout it.
+
+Finish more than one line at once for a DOUBLE or TRIPLE RINGO.
+
+WAYS TO PLAY
+
+Pass and Play: two to five players sharing one screen.
+vs Computer: easy, normal and hard opponents that place, steal and twist.
+Online: create a room and share the code, or open your room so anyone can drop
+in. Watch a game in progress and take the next free seat.
+
+SEEING INSIDE A CUBE
+
+The whole cube is there in front of you. Drag to spin it. Tap a colour to look
+into one layer. Fan the layers apart to see where every ring sits. A rolled
+space is marked with a crosshair so you always know where you're aiming.
+
+NO NONSENSE
+
+No adverts. No accounts. No chat. No tracking. Nothing you type outlives the
+game you typed it in. Pass and Play and games against the computer work with
+no signal at all.
+
+Free, and it will stay that way.
+
+RINGO is an original game invented by Wendelin Leinweber.
+(c) 2026 Bee Line Microsystems LLC
+
+## Other listing fields
+
+- App or game: **Game**
+- Category: **Board**
+- Tags: board game, puzzle, family, multiplayer, dice
+- Contact email: steve@beelinemicrosystems.com
+- Website: https://ringo3d.beelinemicrosystems.com
+- Privacy policy: https://ringo3d.beelinemicrosystems.com/privacy.html
+
+## Graphics
+
+- App icon 512x512: `public/icons/icon-512.png`
+- Feature graphic 1024x500: `store/feature-graphic.png`
+- Phone screenshots: `public/screenshots/phone-menu.jpg`, `phone-game.jpg`
+  (780x1320). Play wants at least two; four is better. More can be rendered
+  with `scripts/make-assets.mjs`.
+- Tablet screenshots are optional; supply `public/screenshots/desktop-game.jpg`
+  (1280x900) if you want the tablet-optimised badge.
+
+## Data safety answers
+
+Answer **yes, this app collects data**, then declare exactly one item. Saying
+"no data collected" would be wrong, because the display name reaches the
+server and lives in the room for up to a day, which is longer than Play's
+definition of ephemeral.
+
+| Question | Answer |
+| --- | --- |
+| Data type | Personal info → Name |
+| Collected or shared | Collected. Not shared. |
+| Processed ephemerally | No |
+| Required or optional | Optional |
+| Purpose | App functionality |
+| Linked to a user identity | No. There are no accounts. |
+| Can users request deletion | Deleted automatically when the room expires |
+| Data encrypted in transit | Yes |
+
+Everything else is genuinely nothing: no location, no contacts, no photos, no
+identifiers, no advertising ID, no analytics library, no crash reporting SDK.
+
+## The rest of App content
+
+- **Ads**: no ads.
+- **App access**: all functionality is available without any special access.
+- **Content rating**: no violence, no language, no sexual content, no
+  gambling, no purchases, no user-to-user free text. It should come back
+  Everyone / PEGI 3.
+- **Target audience**: 13 and up. The content suits everyone, but ticking the
+  under-13 boxes pulls the app into the Families programme, and the app does
+  take a display name. 13+ keeps the first release simple.
+- **News app**: no. **Government app**: no. **Financial features**: none.
+- **Health**: none.

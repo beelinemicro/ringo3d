@@ -13,6 +13,21 @@
 
   .og { position: relative; width: 1200px; height: 630px; overflow: hidden; }
   .og.square { width: 1200px; height: 1200px; }
+  /* Play's 1024x500 feature graphic. It gets cropped at the edges on some
+     layouts, so everything that matters sits well inside. */
+  .og.feature { width: 1024px; height: 500px; }
+  .og.feature .rays { left: 760px; top: 250px; }
+  .og.feature .spill { left: 760px; top: 250px; width: 780px; height: 780px; }
+  .og.feature .left { left: 56px; width: 430px; gap: 8px; }
+  .og.feature .logo-ring { --rw: 52px; margin: 0 -6px; }
+  .og.feature .title { font-size: 4.6rem; }
+  .og.feature .tag1 { font-size: 1.5rem; margin-top: 6px; }
+  .og.feature .tag2 { font-size: 1.02rem; max-width: 400px; line-height: 1.32; }
+  .og.feature .pills, .og.feature .url { display: none; }
+  .og.feature .panel { left: 545px; top: 22px; width: 456px; height: 456px; border-radius: 28px; }
+  .og.feature .callout span { font-size: 4.4rem; transform: rotate(-5deg) translateY(-108px); }
+  .og.feature .steal { font-size: 1.3rem; right: 18px; bottom: 14px; }
+  .og.feature .dice-area { left: 402px; top: 330px; transform: rotate(-6deg) scale(0.74); }
 
   /* Game-show rays and a warm spill behind the cube's panel. */
   .og .rays { position: absolute; left: 870px; top: 315px; animation: none; opacity: 0.8; }
@@ -98,8 +113,9 @@
     stage.innerHTML = '<div class="icon"><canvas id="c"></canvas></div>';
   } else {
     const square = kind === 'og-square';
+    const feature = kind === 'feature';
     if (square) document.body.classList.add('square');
-    stage.innerHTML = `<div class="og ${square ? 'square' : ''}">
+    stage.innerHTML = `<div class="og ${square ? 'square' : ''}${feature ? ' feature' : ''}">
       <div class="spill"></div>
       <div class="banner-rays rays"></div>
       <div class="left">
@@ -131,7 +147,7 @@
   const canvas = document.getElementById('c');
   const cube = createCube(canvas, { minimal: true, showLabels: kind !== 'icon' });
   cube.setAngles(kind === 'icon' ? -0.7 : -0.62, kind === 'icon' ? 0.42 : 0.38);
-  cube.setZoom(kind === 'icon' ? 0.9 : 1.12);
+  cube.setZoom(kind === 'icon' ? 0.9 : kind === 'feature' ? 1.2 : 1.12);
   cube.sync({ board, winLines: win, current: 0, instant: true });
   document.fonts.ready.then(() => {
     if (kind !== 'icon') setTimeout(() => burst(document.getElementById('confetti'), ['#e5484d', '#ffd34d', '#ffffff', '#3a7bd5', '#30a46c']), 900);

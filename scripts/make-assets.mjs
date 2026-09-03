@@ -37,6 +37,7 @@ await capture('icon', 192, 192, 'icon-192.png');
 await capture('icon', 180, 180, 'apple-touch-icon.png');
 await capture('icon', 64, 64, 'favicon.png');
 await capture('og', 1200, 630, 'og.png');
+await capture('feature', 1024, 500, 'feature-graphic.png');
 await capture('og-square', 1200, 1200, 'og-square.png');
 console.log('assets captured; errors:', errors.length ? errors : 'none');
 ws.close(); chrome.kill();
