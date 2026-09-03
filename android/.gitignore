@@ -15,3 +15,5 @@ store_icon.png
 *.apk
 *.idsig
 assetlinks.json
+.gradle/
+local.properties
