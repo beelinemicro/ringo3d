@@ -69,7 +69,7 @@ function backgroundTexture() {
 
 // `minimal` renders just the cube — no labels, table or scanner — for the
 // app icon and share images.
-export function createCube(canvas, { onTap = () => {}, onInteract = () => {}, minimal = false } = {}) {
+export function createCube(canvas, { onTap = () => {}, onInteract = () => {}, minimal = false, showLabels = !minimal } = {}) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -157,7 +157,7 @@ export function createCube(canvas, { onTap = () => {}, onInteract = () => {}, mi
   const labels = { col: [], row: [], layer: [] };
   function makeLabels() {
     for (const k of Object.keys(labels)) { labels[k].forEach((s) => { root.remove(s); s.material.map.dispose(); s.material.dispose(); }); labels[k] = []; }
-    if (minimal) return;
+    if (!showLabels) return;
     const mk = (text, pos, color, scale = 0.62) => {
       const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: textTexture(text, { color }), transparent: true, depthWrite: false }));
       sp.position.copy(pos);
