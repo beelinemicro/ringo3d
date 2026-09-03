@@ -1,7 +1,7 @@
 {
   "name": "RINGO 3D \u2014 The Family Board Game, Cubed",
   "short_name": "RINGO 3D",
-  "description": "Dad's board game, cubed: a 5x5x5 cube, three dice, rings inside glass, and Rubik's-style twists.",
+  "description": "Dad's board game, cubed: a 5x5x5 cube, three dice, rings inside glass, and Rubik's-style twists. Five in a row, or four corners of a face, wins.",
   "start_url": "/",
   "scope": "/",
   "id": "/",
