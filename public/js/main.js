@@ -706,10 +706,11 @@ function endGame(winnerIdx, twister) {
     shakeScreen(true);
     showBanner(winTitle(state), winSub(state, twister), winnerIdx);
     const n = state.winLines?.length || 1;
-    voice.win(n);
     // Watchers celebrate every winner — they have no dog in the fight.
     const lost = (mode === 'ai' && state.players[winnerIdx].isBot)
       || (mode === 'online' && winnerIdx !== net?.myIndex);
+    if (!lost) voice.party();
+    voice.play(n >= 3 ? 'triple-ringo' : n === 2 ? 'double-ringo' : 'ringo', { delay: lost ? 0 : 220 });
     if (lost) {
       sfx.lose();
     } else {
@@ -733,6 +734,7 @@ function showBanner(text, sub, winnerIdx) {
 
 $('btn-banner-again').addEventListener('click', () => {
   sfx.click();
+  voice.stopAll();
   $('banner').classList.add('hidden');
   confettiStop($('confetti'));
   if (mode === 'online') {
@@ -752,6 +754,7 @@ $('btn-banner-menu').addEventListener('click', () => { sfx.click(); quitToMenu()
 $('btn-quit').addEventListener('click', () => { sfx.click(); quitToMenu(); });
 
 function quitToMenu() {
+  voice.stopAll();
   send({ type: 'leave' }); // frees a lobby seat for real (vs. a phone blip)
   if (net) { clearInterval(net.keepalive); net.ws.onclose = null; net.ws.close(); net = null; }
   clearSeat(); // leaving on purpose — don't auto-rejoin this game later

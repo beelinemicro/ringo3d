@@ -24,7 +24,26 @@ export function preloadVoices() {
   NAMES.forEach(clip);
 }
 
+// The crowd cheer under a win — a sound effect, so it runs alongside the
+// shout rather than replacing it. Not preloaded: the clip is optional.
+let party = null;
+
 export const voice = {
+  // The crowd goes wild. Fails silently when audio/party.mp3 isn't there.
+  party() {
+    if (isMuted()) return;
+    try {
+      if (!party) { party = new Audio('audio/party.mp3'); party.volume = 0.55; }
+      party.currentTime = 0;
+      party.play().catch(() => {});
+    } catch { /* no audio here */ }
+  },
+  stopAll() {
+    try {
+      if (current) { current.pause(); current.currentTime = 0; }
+      if (party) { party.pause(); party.currentTime = 0; }
+    } catch { /* nothing playing */ }
+  },
   play(name, { delay = 0 } = {}) {
     if (isMuted()) return;
     setTimeout(() => {
