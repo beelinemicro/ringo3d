@@ -5,7 +5,7 @@
 // way down — and drives it with real WebSocket clients through the whole
 // online protocol: presence, stats, lobby life-cycle, invite-era seat
 // tokens, silent-drop survival, rejoin, ghost pruning, bots and their
-// difficulty levels, reactions, twists, open tables, and a full game.
+// difficulty levels, reactions, twists, open rooms, and a full game.
 //
 // The Lambda (aws/ws-handler) speaks the identical protocol; this suite is
 // the regression net for both halves' shared behavior.
@@ -84,7 +84,7 @@ try {
     const p1 = await client();
     p1.sendJ({ type: 'hello' });
     await p1.waitFor('presence', (m) => m.count === 1);
-    await p1.waitFor('tables'); // the open-table list arrives with the hello
+    await p1.waitFor('rooms'); // the open-table list arrives with the hello
     const p2 = await client();
     p2.sendJ({ type: 'hello' });
     await p1.waitFor('presence', (m) => m.count === 2);
@@ -331,53 +331,53 @@ try {
     console.log('twists over the wire ✔');
   }
 
-  // --- open tables: the live list everyone on the site can see ---
+  // --- open rooms: the live list everyone on the site can see ---
   {
     const menu = await client(); // someone idling on the menu
     menu.sendJ({ type: 'hello' });
-    const first = await menu.waitFor('tables');
-    assert.deepEqual(first.tables, [], 'the list arrives with the hello, empty at first');
+    const first = await menu.waitFor('rooms');
+    assert.deepEqual(first.rooms, [], 'the list arrives with the hello, empty at first');
 
     // A room created without "open" stays invisible.
     const priv = await client();
-    priv.sendJ({ type: 'create', name: 'Quiet' });
+    priv.sendJ({ type: 'create', name: 'Quiet', title: 'should not show' });
     await priv.waitFor('lobby');
     await sleep(150);
-    assert.deepEqual(menu.last('tables').tables, [], 'a private room is never listed');
+    assert.deepEqual(menu.last('rooms').rooms, [], 'a private room is never listed');
 
-    // An open table appears, with who's there and seats left.
+    // An open room appears, named, with who's there and seats left.
     const host = await client();
-    host.sendJ({ type: 'create', name: 'Steve', open: true });
+    host.sendJ({ type: 'create', name: 'Steve', open: true, title: 'Sunday night RINGO' });
     const seat = await host.waitFor('lobby');
-    const listed = await menu.waitFor('tables', (m) => m.tables.length === 1);
+    const listed = await menu.waitFor('rooms', (m) => m.rooms.length === 1);
     assert.deepEqual(
-      [listed.tables[0].code, listed.tables[0].host, listed.tables[0].seats, listed.tables[0].started],
-      [seat.code, 'Steve', 4, false], 'the open table is listed with seats free');
+      [listed.rooms[0].code, listed.rooms[0].title, listed.rooms[0].host, listed.rooms[0].seats, listed.rooms[0].started],
+      [seat.code, 'Sunday night RINGO', 'Steve', 4, false], 'the open room is listed by its name, with seats free');
 
     // A stranger drops in from the list; the seat count follows.
     const guest = await client();
     guest.sendJ({ type: 'join', code: seat.code, name: 'Passerby' });
     await host.waitFor('lobby', (m) => m.players.length === 2);
-    const filled = await menu.waitFor('tables', (m) => m.tables[0]?.seats === 3);
-    assert.deepEqual(filled.tables[0].players.map((p) => p.name), ['Steve', 'Passerby'], 'the list names who is at the table');
+    const filled = await menu.waitFor('rooms', (m) => m.rooms[0]?.seats === 3);
+    assert.deepEqual(filled.rooms[0].players.map((p) => p.name), ['Steve', 'Passerby'], 'the list names who is in the room');
 
     // Once it starts it becomes a game to watch, not a seat to take.
     host.sendJ({ type: 'start' });
     await host.waitFor('state', (m) => m.event?.kind === 'start');
-    const playing = await menu.waitFor('tables', (m) => m.tables[0]?.started === true);
-    assert.equal(playing.tables[0].started, true, 'a table in play is flagged as such');
+    const playing = await menu.waitFor('rooms', (m) => m.rooms[0]?.started === true);
+    assert.equal(playing.rooms[0].started, true, 'a room in play is flagged as such');
 
-    // A table everyone has walked away from stops being advertised.
+    // A room everyone has walked away from stops being advertised.
     host.terminate();
     guest.terminate();
     // Poll the newest list: an early empty one is still in this client's log,
     // so waitFor would match history rather than the state we're after.
-    for (let i = 0; i < 200 && menu.last('tables').tables.length; i++) await sleep(25);
-    assert.deepEqual(menu.last('tables').tables, [], 'a table with nobody at it is delisted');
+    for (let i = 0; i < 200 && menu.last('rooms').rooms.length; i++) await sleep(25);
+    assert.deepEqual(menu.last('rooms').rooms, [], 'a room with nobody in it is delisted');
 
     priv.close();
     menu.close();
-    console.log('open tables: live list for everyone ✔');
+    console.log('open rooms: live list for everyone ✔');
   }
 
   // --- the queue for the next game: position, re-numbering, missing out ---

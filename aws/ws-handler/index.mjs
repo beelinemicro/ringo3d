@@ -38,12 +38,12 @@ const MAX_ROOM_PLAYERS = 5;
 const MAX_ROOMS_PER_IP = Number(process.env.RINGO_MAX_ROOMS_PER_IP || 20);
 const MAX_ROOMS_PER_WINDOW = 400; // everyone together, a backstop
 const ROOM_WINDOW_MS = 10 * 60_000;
-const MAX_TABLES_LISTED = 25; // open tables sent to each menu
+const MAX_ROOMS_LISTED = 25; // open rooms sent to each menu
 const REACT_GAP_MS = 900; // one reaction per connection per second
 
 // A room is private by default: invisible, reachable only by its 4-letter
-// code. A host can instead open the table, which lists it live on the menu
-// of everyone on the site so anybody can drop in and play.
+// code. A host can instead open it, which lists it live on the menu of
+// everyone on the site so anybody can drop in and play.
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
   marshallOptions: { removeUndefinedValues: true },
@@ -252,6 +252,12 @@ async function broadcastWatchers(room) {
   await Promise.all(roomAudience(room).map((id) => sendTo(id, msg)));
 }
 
+// An open room may be given a name at creation, shown on everyone's menu.
+// Same character rules as a player name, just a little longer.
+function cleanTitle(raw) {
+  return String(raw || '').replace(/[^\w !?'.,&-]/g, '').trim().slice(0, 24);
+}
+
 function cleanName(raw) {
   return String(raw || 'Player').replace(/[^\w !?'.-]/g, '').trim().slice(0, 14) || 'Player';
 }
@@ -331,32 +337,34 @@ async function scanPrefix(prefix) {
   return items;
 }
 
-// What the menu shows: who's at each open table, and whether you can sit down.
-async function openTables() {
+// What the menu shows: each open room's name, who's there, and whether
+// there's a seat free.
+async function openRooms() {
   const rooms = await scanPrefix('ROOM#');
   return rooms
-    // Don't advertise a table nobody is sitting at: rooms outlive a dropped
-    // connection so people can come back, but a ghost table is a dead end.
+    // Don't advertise a room nobody is sitting in: rooms outlive a dropped
+    // connection so people can come back, but a ghost room is a dead end.
     .filter((r) => r.open && (r.players || []).some((p) => !p.isBot && !p.disconnected))
     .map((r) => ({
       code: r.code,
+      title: r.title || '',
       host: r.players?.[r.host]?.name || 'Someone',
       players: (r.players || []).map((p) => ({ name: p.name, isBot: !!p.isBot, away: !!p.disconnected })),
       seats: Math.max(0, MAX_ROOM_PLAYERS - (r.players || []).length),
       started: !!r.started,
     }))
-    // Tables you can join first, then games to watch — and never more than
+    // Rooms you can join first, then games to watch — and never more than
     // fit on a menu, so the broadcast stays small however many rooms exist.
     .sort((a, b) => (a.started - b.started) || (b.seats - a.seats))
-    .slice(0, MAX_TABLES_LISTED);
+    .slice(0, MAX_ROOMS_LISTED);
 }
 
 // Only called where the list can actually change (a seat taken or freed, a
 // game starting or ending) — never per move, since each refresh is a scan.
-async function refreshTables(room) {
+async function refreshRooms(room) {
   if (!room?.open) return;
-  const [tables, ids] = await Promise.all([openTables(), presenceConnIds()]);
-  const msg = { type: 'tables', v: GAME_VERSION, tables };
+  const [rooms, ids] = await Promise.all([openRooms(), presenceConnIds()]);
+  const msg = { type: 'rooms', v: GAME_VERSION, rooms };
   await Promise.all(ids.map((id) => sendTo(id, msg)));
 }
 
@@ -435,7 +443,7 @@ async function onMessage(connId, msg, ip) {
       }));
       await logVisit(connId, ip);
       await broadcastPresence();
-      await sendTo(connId, { type: 'tables', v: GAME_VERSION, tables: await openTables() });
+      await sendTo(connId, { type: 'rooms', v: GAME_VERSION, rooms: await openRooms() });
       return;
     }
 
@@ -461,6 +469,7 @@ async function onMessage(connId, msg, ip) {
           pk: `ROOM#${code}`,
           code,
           open: !!msg.open,
+          title: msg.open ? cleanTitle(msg.title) : '', // named at creation only
           rev: 0,
           players: [{ name: cleanName(msg.name), connectionId: connId, disconnected: false, token: crypto.randomUUID() }],
           host: 0,
@@ -473,7 +482,7 @@ async function onMessage(connId, msg, ip) {
           await noteRoomCreated(ip);
           await mapConnection(connId, code, 0);
           await broadcastLobby(room);
-          await refreshTables(room);
+          await refreshRooms(room);
           return;
         }
       }
@@ -499,7 +508,7 @@ async function onMessage(connId, msg, ip) {
       if (out === false) return sendTo(connId, { type: 'error', message: err });
       await mapConnection(connId, code, seat);
       await broadcastLobby(room);
-      await refreshTables(room);
+      await refreshRooms(room);
       return;
     }
 
@@ -589,7 +598,7 @@ async function onMessage(connId, msg, ip) {
         code, you: seat, host: room.host, token,
       });
       await broadcastState(room, { kind: 'rejoined', name });
-      await refreshTables(room);
+      await refreshRooms(room);
       if (room.watchers?.length) await broadcastWatchers(room); // re-show the 👀 badge
       return;
     }
@@ -616,7 +625,7 @@ async function onMessage(connId, msg, ip) {
         r.players.push({ name, isBot: true, connectionId: null, disconnected: false, level: cleanLevel(msg.level) });
         return true;
       });
-      if (room && out === true) { await broadcastLobby(room); await refreshTables(room); }
+      if (room && out === true) { await broadcastLobby(room); await refreshRooms(room); }
       return;
     }
 
@@ -648,7 +657,7 @@ async function onMessage(connId, msg, ip) {
         await Promise.all(room.players.map((p, i) =>
           p.connectionId ? mapConnection(p.connectionId, room.code, i) : null));
         await broadcastLobby(room);
-        await refreshTables(room);
+        await refreshRooms(room);
       }
       return;
     }
@@ -671,7 +680,7 @@ async function onMessage(connId, msg, ip) {
         await Promise.all(room.players.map((p, i) =>
           p.connectionId ? mapConnection(p.connectionId, room.code, i) : null));
         await broadcastState(room, { kind: 'start' });
-        await refreshTables(room);
+        await refreshRooms(room);
         await runBots(conn.code);
       }
       return;
@@ -698,7 +707,7 @@ async function onMessage(connId, msg, ip) {
           p.connectionId ? mapConnection(p.connectionId, room.code, i) : null));
         await broadcastLobby(room);
       }
-      if (room) await refreshTables(room);
+      if (room) await refreshRooms(room);
       return;
     }
 
@@ -740,7 +749,7 @@ async function onMessage(connId, msg, ip) {
       });
       if (room && out === true) {
         await broadcastState(room, event);
-        if (event.kind === 'win') await refreshTables(room);
+        if (event.kind === 'win') await refreshRooms(room);
         else await runBots(conn.code);
       }
       return;
@@ -763,7 +772,7 @@ async function onMessage(connId, msg, ip) {
       });
       if (room && out === true) {
         await broadcastState(room, event);
-        if (event.kind === 'win') await refreshTables(room);
+        if (event.kind === 'win') await refreshRooms(room);
         else await runBots(conn.code);
       }
       return;
@@ -785,7 +794,7 @@ async function onMessage(connId, msg, ip) {
       if (room && out === true) {
         if (!room.started) await broadcastLobby(room);
         else await broadcastState(room, evt);
-        await refreshTables(room);
+        await refreshRooms(room);
       }
       return;
     }
@@ -827,7 +836,7 @@ async function onMessage(connId, msg, ip) {
         }));
         await broadcastQueue(room, true); // whoever is still waiting learns they missed this one
         await broadcastState(room, { kind: 'start' });
-        await refreshTables(room);
+        await refreshRooms(room);
         await broadcastWatchers(room); // promotions may have emptied the gallery
         await runBots(conn.code);
       }
@@ -908,5 +917,5 @@ async function onDisconnect(connId) {
     await broadcastState(room, { kind: 'left', name });
     await runBots(room.code); // the departed player's turn may pass to a bot
   }
-  await refreshTables(room);
+  await refreshRooms(room);
 }

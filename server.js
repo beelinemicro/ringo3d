@@ -80,11 +80,11 @@ function broadcastPresence() {
   presence.forEach((ws) => sendTo(ws, msg));
 }
 
-// ---------- family tables ----------
+// ---------- open rooms ----------
 //
 // A room is private by default: invisible, reachable only by its 4-letter
-// code. A host can instead open the table, which lists it live on the menu
-// of everyone on the site so anybody can drop in and play.
+// code. A host can instead open it, which lists it live on the menu of
+// everyone on the site so anybody can drop in and play.
 
 const MAX_ROOM_PLAYERS = 5;
 
@@ -98,7 +98,7 @@ const MAX_ROOM_PLAYERS = 5;
 const MAX_ROOMS = 300; // rooms alive at once, a backstop
 const MAX_ROOMS_PER_IP = Number(process.env.RINGO_MAX_ROOMS_PER_IP || 20);
 const ROOM_WINDOW_MS = 10 * 60_000;
-const MAX_TABLES_LISTED = 25; // open tables sent to each menu
+const MAX_ROOMS_LISTED = 25; // open rooms sent to each menu
 const EMPTY_LOBBY_MS = 10 * 60_000; // a room nobody ever joined
 const EMPTY_GAME_MS = 60 * 60_000; // a game everyone walked away from
 
@@ -121,38 +121,40 @@ function noteRoomCreated(ip) {
   else rec.n++;
 }
 
-// What the menu shows: who's at each open table, and whether you can sit down.
-function openTables() {
+// What the menu shows: each open room's name, who's there, and whether
+// there's a seat free.
+function openRooms() {
   const out = [];
   rooms.forEach((r) => {
     if (!r.open) return;
-    // Don't advertise a table nobody is sitting at: rooms outlive a dropped
-    // connection so people can come back, but a ghost table is a dead end.
+    // Don't advertise a room nobody is sitting in: rooms outlive a dropped
+    // connection so people can come back, but a ghost room is a dead end.
     if (!r.players.some((p) => !p.isBot && !p.disconnected)) return;
     out.push({
       code: r.code,
+      title: r.title || '',
       host: r.players[r.host]?.name || 'Someone',
       players: r.players.map((p) => ({ name: p.name, isBot: !!p.isBot, away: !!p.disconnected })),
       seats: Math.max(0, MAX_ROOM_PLAYERS - r.players.length),
       started: !!r.started,
     });
   });
-  // Tables you can join first, then games to watch — and never more than
+  // Rooms you can join first, then games to watch — and never more than
   // fit on a menu, so the broadcast stays small however many rooms exist.
   return out.sort((a, b) => (a.started - b.started) || (b.seats - a.seats))
-    .slice(0, MAX_TABLES_LISTED);
+    .slice(0, MAX_ROOMS_LISTED);
 }
 
-// Sent only when the list actually changes, so a table in play doesn't
+// Sent only when the list actually changes, so a room in play doesn't
 // re-broadcast on every roll.
-let lastTables = '';
+let lastRooms = '';
 
-function broadcastTables() {
-  const tables = openTables();
-  const json = JSON.stringify(tables);
-  if (json === lastTables) return;
-  lastTables = json;
-  const msg = { type: 'tables', v: GAME_VERSION, tables };
+function broadcastRooms() {
+  const list = openRooms(); // not `rooms` — that's the Map of every room
+  const json = JSON.stringify(list);
+  if (json === lastRooms) return;
+  lastRooms = json;
+  const msg = { type: 'rooms', v: GAME_VERSION, rooms: list };
   presence.forEach((ws) => sendTo(ws, msg));
 }
 
@@ -224,7 +226,7 @@ function broadcastWatchers(room) {
 }
 
 function broadcastLobby(room) {
-  if (room.open) broadcastTables(); // seats filled or freed
+  if (room.open) broadcastRooms(); // seats filled or freed
   room.sockets.forEach((ws, i) => {
     sendTo(ws, {
       type: 'lobby',
@@ -239,8 +241,14 @@ function broadcastLobby(room) {
 }
 
 function broadcastState(room, event) {
-  if (room.open) broadcastTables(); // started, renamed, someone left
+  if (room.open) broadcastRooms(); // started, renamed, someone left
   broadcast(room, { type: 'state', v: GAME_VERSION, state: room.state, event });
+}
+
+// An open room may be given a name at creation, shown on everyone's menu.
+// Same character rules as a player name, just a little longer.
+function cleanTitle(raw) {
+  return String(raw || '').replace(/[^\w !?'.,&-]/g, '').trim().slice(0, 24);
 }
 
 function cleanName(raw) {
@@ -352,7 +360,7 @@ function handleMessage(ws, msg) {
       presence.add(ws);
       logVisit(ws.ip);
       broadcastPresence();
-      sendTo(ws, { type: 'tables', v: GAME_VERSION, tables: openTables() });
+      sendTo(ws, { type: 'rooms', v: GAME_VERSION, rooms: openRooms() });
       break;
     }
 
@@ -366,13 +374,14 @@ function handleMessage(ws, msg) {
       if (blocked) return sendTo(ws, { type: 'error', message: blocked });
       const r = makeRoom(!!msg.open, ws.ip);
       if (!r) return sendTo(ws, { type: 'error', message: 'The game is busy right now — try again in a minute.' });
+      if (r.open) r.title = cleanTitle(msg.title); // named at creation only
       noteRoomCreated(ws.ip);
       r.players.push({ name: cleanName(msg.name), token: crypto.randomUUID() });
       r.sockets.push(ws);
       ws.roomCode = r.code;
       ws.playerIdx = 0;
       broadcastLobby(r);
-      if (r.open) broadcastTables();
+      if (r.open) broadcastRooms();
       break;
     }
 
@@ -489,7 +498,7 @@ function handleMessage(ws, msg) {
       room.sockets.forEach((s, i) => { if (s) s.playerIdx = i; });
       if (room.players.length === 0) {
         rooms.delete(room.code);
-        if (room.open) broadcastTables();
+        if (room.open) broadcastRooms();
         return;
       }
       if (idx < room.host) room.host -= 1;
@@ -687,7 +696,7 @@ setInterval(() => {
     }
     if (now - room.emptySince > (room.started ? EMPTY_GAME_MS : EMPTY_LOBBY_MS)) {
       rooms.delete(code);
-      if (room.open) broadcastTables();
+      if (room.open) broadcastRooms();
     }
   });
   for (const [ip, rec] of ipCreates) {

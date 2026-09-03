@@ -22,7 +22,7 @@ same dice, same shout.
 
 Live at **https://ringo3d.beelinemicrosystems.com**: the cube, twists, Pass
 & Play, vs Computer (easy / normal / hard bots that place, steal and twist),
-online rooms with invite links, **open tables** anyone can drop into,
+online rooms with invite links, **open rooms** anyone can drop into,
 spectators who can queue for the next game, emoji reactions, the
 announcer's voice, and install-to-phone with offline local play.
 
@@ -65,19 +65,27 @@ Same single-table layout as RINGO: `ROOM#<code>`, `CONN#<id>`, `WATCH#<id>`,
 ./scripts/deploy-lambda.sh   # room server → Lambda (bundles game.js + ai.js)
 ```
 
-## Open tables
+## Open rooms
 
-A room is private by default: invisible, reachable only by its 4-letter code,
-for when you want to play with people you invite. Ticking "Open table"
-instead lists the room live on the menu of everyone on the site — who's
-there, how many seats are free — so anybody can drop in, or watch once it
-starts. The list rides the presence socket every open page already holds, so
-it updates the moment a seat fills or a game begins. A table nobody is
-sitting at is delisted rather than advertised as a dead end.
+Everything is a **room** — the term the rest of the game already used, and
+the common one in online games generally ("table" belongs to card and casino
+games). A room is private by default: invisible, reachable only by its
+4-letter code, for when you want to play with people you invite. Ticking
+"Open room" instead lists it live on the menu of everyone on the site, so
+anybody can drop in, or watch once it starts.
+
+An open room can be given a **name** when it's created ("Sunday night
+RINGO", "Beginners welcome"), shown above the players in the list; without
+one it's listed by the host's name. Naming is creation-only — there's no
+rename once people are in. The list rides the presence socket every open
+page already holds, so it updates the moment a seat fills or a game begins.
+A room nobody is sitting in is delisted rather than advertised as a dead
+end, and at most 25 are broadcast.
 
 There is deliberately no leaderboard and no chat. Names are typed per game,
-sanitized to 14 characters and never stored; reactions are a fixed list of
-six emoji. Nothing a player types outlives the room.
+sanitized to 14 characters and never stored, as are room names (24
+characters); reactions are a fixed list of six emoji. Nothing a player types
+outlives the room.
 
 ## Getting back into a game
 
@@ -100,7 +108,7 @@ says so and clears itself.
 
 The game is open to anyone, so a bot could otherwise hold thousands of
 sockets open and make a room on each — filling the 4-letter code space,
-bloating the open-table broadcast, and costing real money in the cloud.
+bloating the open-room broadcast, and costing real money in the cloud.
 
 - **Rooms per address**: 20 per 10 minutes (`RINGO_MAX_ROOMS_PER_IP`). Set
   well above anything a household behind one router could hit. Limiting per
@@ -108,7 +116,7 @@ bloating the open-table broadcast, and costing real money in the cloud.
   attacker lock everybody else out by filling it.
 - **Rooms overall**: a backstop of 400 creations per 10 minutes in the cloud,
   300 alive at once locally.
-- **Open tables broadcast**: at most 25, however many rooms exist.
+- **Open-room broadcast**: at most 25, however many rooms exist.
 - **Room codes**: allocation gives up rather than spinning when the space is
   crowded, and answers with a friendly "try again in a minute".
 - **Empty rooms**: one that never started is reclaimed in an hour in the

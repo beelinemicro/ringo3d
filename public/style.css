@@ -838,9 +838,9 @@ body::before {
 
 .lobby-players .kick:hover { opacity: 1; }
 
-/* ---- The open-table list on the online setup screen ---- */
+/* ---- The open-room list on the online setup screen ---- */
 
-.tables {
+.rooms {
   /* Sits inside #setup-body, so it fills that card rather than setting its
      own width — which was wider than the card and spilled out to the right. */
   width: 100%;
@@ -851,7 +851,7 @@ body::before {
   border: 1px solid rgba(255, 211, 77, 0.3);
 }
 
-.tables h3 {
+.rooms h3 {
   margin: 0 0 8px;
   text-align: center;
   font-size: 0.9rem;
@@ -860,9 +860,9 @@ body::before {
   color: var(--gold);
 }
 
-.tables .hint { margin: 6px 0 0; }
+.rooms .hint { margin: 6px 0 0; }
 
-.table-list {
+.room-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -874,7 +874,7 @@ body::before {
   scrollbar-width: thin;
 }
 
-.table-row {
+.room-row {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -884,16 +884,31 @@ body::before {
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.table-who {
+.room-main {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.room-title {
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.table-meta { font-size: 0.82rem; opacity: 0.7; white-space: nowrap; }
+/* The players, shown under a room's own name when it has one. */
+.room-who {
+  font-size: 0.78rem;
+  opacity: 0.72;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.room-meta { font-size: 0.82rem; opacity: 0.7; white-space: nowrap; }
 
 /* "Open table" tickbox above Create a Room. */
 .open-opt {
@@ -1858,10 +1873,10 @@ body::before {
   .field label { font-size: 0.85rem; margin-bottom: 4px; }
   .field input[type="text"] { font-size: 1rem; padding: 9px 12px; }
   .seg button { font-size: 0.98rem; padding: 7px 0; }
-  .tables { padding: 10px 10px 12px; }
-  .tables h3 { margin-bottom: 6px; font-size: 0.82rem; }
-  .table-list { max-height: none; gap: 6px; }
-  .table-row { padding: 7px 8px; }
+  .rooms { padding: 10px 10px 12px; }
+  .rooms h3 { margin-bottom: 6px; font-size: 0.82rem; }
+  .room-list { max-height: none; gap: 6px; }
+  .room-row { padding: 7px 8px; }
   .room-code-wrap { gap: 6px; }
   .lobby-players li { padding: 6px 12px; font-size: 0.95rem; }
   .hint { font-size: 0.88rem; }

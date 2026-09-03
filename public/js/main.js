@@ -1,5 +1,5 @@
 // RINGO 3D — client application: screens, the cube, dice, turn flow, twists,
-// and online play (rooms, open tables, spectators).
+// and online play (rooms, the open-room list, spectators).
 
 import {
   GAME_VERSION, WILD, COL_LABELS, LAYERS, COLORS, SIZE,
@@ -26,9 +26,9 @@ let twistOpen = false;
 const twistSel = { axis: 'z', k: 0, dir: 1 };
 let net = null; // { ws, code, myIndex, isHost, keepalive }
 
-// Open tables: rooms whose host chose to list them, so anyone on the site
+// Open rooms: the ones whose host chose to list them, so anyone on the site
 // can drop in. A room that isn't opened stays private and code-only.
-let openTables = [];
+let openRooms = [];
 
 // ---------- screens ----------
 
@@ -167,8 +167,12 @@ function openSetup(m) {
         <input type="text" id="online-name" maxlength="14" placeholder="Your name" value="${savedName()}">
       </div>
       <label class="open-opt">
-        <input type="checkbox" id="chk-open" checked> <span>Open table &mdash; anyone can drop in</span>
+        <input type="checkbox" id="chk-open" checked> <span>Open room &mdash; anyone can drop in</span>
       </label>
+      <div class="field" id="room-name-field">
+        <label for="room-title">Room name (optional)</label>
+        <input type="text" id="room-title" maxlength="24" placeholder="e.g. Sunday night RINGO">
+      </div>
       <div class="setup-actions">
         <button class="btn btn-primary" id="btn-create-room">Create a Room</button>
       </div>
@@ -181,11 +185,15 @@ function openSetup(m) {
         <button class="btn btn-ghost" id="btn-watch-room">👀 Watch</button>
       </div>
       <p class="hint" id="online-status"></p>
-      <div class="tables">
-        <h3>🎲 Open tables</h3>
-        <div id="table-list" class="table-list"></div>
+      <div class="rooms">
+        <h3>🎲 Open rooms</h3>
+        <div id="room-list" class="room-list"></div>
       </div>`;
-    renderTables();
+    renderRooms();
+    // The name only applies to a room that is actually listed.
+    const syncNameField = () => $('room-name-field').classList.toggle('hidden', !$('chk-open').checked);
+    $('chk-open').addEventListener('change', syncNameField);
+    syncNameField();
     $('btn-create-room').addEventListener('click', () => connectOnline(null));
     $('btn-join-room').addEventListener('click', () =>
       connectOnline($('online-code').value.trim().toUpperCase()));
@@ -198,24 +206,41 @@ function openSetup(m) {
 
 $('btn-setup-back').addEventListener('click', () => { sfx.click(); show('screen-menu'); });
 
-function renderTables() {
-  const list = $('table-list');
+function renderRooms() {
+  const list = $('room-list');
   if (!list) return;
   list.innerHTML = '';
-  if (!openTables.length) {
+  if (!openRooms.length) {
     const p = document.createElement('p');
     p.className = 'hint';
-    p.textContent = 'No open tables right now. Create one with “Open table” ticked and anyone who comes by can join you.';
+    p.textContent = 'No open rooms right now. Create one with “Open room” ticked and anyone who comes by can join you.';
     list.appendChild(p);
     return;
   }
-  openTables.forEach((t) => {
+  openRooms.forEach((t) => {
     const row = document.createElement('div');
-    row.className = 'table-row';
+    row.className = 'room-row';
     const who = t.players.map((p) => p.name + (p.isBot ? ' 🤖' : '') + (p.away ? ' 💤' : '')).join(', ');
     const full = t.seats === 0;
     const label = t.started ? 'in play' : (full ? 'full' : `${t.seats} seat${t.seats === 1 ? '' : 's'} free`);
-    row.innerHTML = `<span class="table-who">${who || t.host}</span><span class="table-meta">${label}</span>`;
+    // Names and room titles are written by other players, so they go in as
+    // text, never as markup.
+    const main = document.createElement('div');
+    main.className = 'room-main';
+    const title = document.createElement('span');
+    title.className = 'room-title';
+    title.textContent = t.title || who || t.host;
+    main.appendChild(title);
+    if (t.title) {
+      const sub = document.createElement('span');
+      sub.className = 'room-who';
+      sub.textContent = who || t.host;
+      main.appendChild(sub);
+    }
+    const meta = document.createElement('span');
+    meta.className = 'room-meta';
+    meta.textContent = label;
+    row.append(main, meta);
     const b = document.createElement('button');
     b.className = 'btn btn-small';
     b.type = 'button';
@@ -859,6 +884,7 @@ $('btn-quit').addEventListener('click', () => { sfx.click(); quitToMenu(); });
 
 function quitToMenu() {
   voice.stopAll();
+  stopLiveBeat();
   send({ type: 'leave' }); // frees a lobby seat for real (vs. a phone blip)
   // Stepping out of a game still in play: the server keeps the seat for an
   // hour, so keep the token too and offer the way back on the menu. Anything
@@ -957,6 +983,31 @@ function refreshRejoinButton() {
   b.classList.toggle('hidden', !seat || busyElsewhere);
   if (seat) b.textContent = '↩ Rejoin your game';
   fitMenu();
+}
+
+// Tabs share storage, so a second tab opening the game would reclaim the
+// seat and kick the tab actually being played in — and the kicked tab would
+// grab it back. A heartbeat while playing lets a new tab see that somebody
+// is already in the chair and offer the button instead of taking it.
+const LIVE_KEY = 'ringo3dLive';
+let liveBeat = null;
+
+function startLiveBeat() {
+  if (liveBeat) return;
+  const beat = () => { try { localStorage.setItem(LIVE_KEY, String(Date.now())); } catch { /* storage full or blocked */ } };
+  beat();
+  liveBeat = setInterval(beat, 3000);
+}
+
+function stopLiveBeat() {
+  clearInterval(liveBeat);
+  liveBeat = null;
+  try { localStorage.removeItem(LIVE_KEY); } catch { /* nothing to clear */ }
+}
+
+function anotherTabIsPlaying() {
+  const t = Number(localStorage.getItem(LIVE_KEY) || 0);
+  return t > 0 && Date.now() - t < 8000;
 }
 
 function rejoinSavedSeat() {
@@ -1091,8 +1142,9 @@ function connectOnline(joinCode) {
     connectGame({ type: 'join', code: joinCode, name });
     return;
   }
-  // An open table is listed on everyone's menu; unticked stays code-only.
-  connectGame({ type: 'create', name, open: !!$('chk-open')?.checked });
+  // An open room is listed on everyone's menu; unticked stays code-only.
+  const open = !!$('chk-open')?.checked;
+  connectGame({ type: 'create', name, open, title: open ? ($('room-title')?.value || '') : '' });
 }
 
 function watchOnline(code) {
@@ -1207,6 +1259,7 @@ function handleServer(msg) {
       net.myIndex = msg.you;
       net.isHost = msg.you === msg.host;
       saveSeat(msg.code, msg.token); // back in the chair; no longer stepped out
+      startLiveBeat();
       refreshRejoinButton();
       state = null;
       ensureCube();
@@ -1244,6 +1297,7 @@ function handleServer(msg) {
 
     case 'lobby': {
       mode = 'online';
+      startLiveBeat();
       net.code = msg.code;
       net.myIndex = msg.you;
       net.isHost = msg.you === msg.host;
@@ -1457,7 +1511,7 @@ function renderQueue(msg) {
   const say = [];
   if (msg.missed) say.push('That game filled up without you.');
   if (msg.seats === 0) {
-    say.push('The table is full, so a seat only opens if someone leaves.');
+    say.push('The room is full, so a seat only opens if someone leaves.');
   } else if (msg.pos > msg.seats) {
     say.push(`Only ${msg.seats} seat${msg.seats === 1 ? '' : 's'} free next game, so you're waiting for the one after.`);
   } else {
@@ -1579,9 +1633,9 @@ function startPresence() {
         : `${msg.count} people here now`;
       $('presence').classList.remove('hidden');
       fitMenu();
-    } else if (msg.type === 'tables') {
-      openTables = msg.tables || [];
-      renderTables();
+    } else if (msg.type === 'rooms') {
+      openRooms = msg.rooms || [];
+      renderRooms();
     }
   };
   ws.onerror = () => ws.close();
@@ -1692,7 +1746,7 @@ startPresence();
   // one hours old, waits behind the button instead — nobody wants to be
   // dropped into last night's finished game on opening the site.
   const fresh = seat && Date.now() - seat.ts < 2 * 3600 * 1000;
-  if (fresh && !seat.left) rejoinSavedSeat();
+  if (fresh && !seat.left && !anotherTabIsPlaying()) rejoinSavedSeat();
   else refreshRejoinButton();
 }
 
