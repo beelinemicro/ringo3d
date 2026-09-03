@@ -1546,6 +1546,62 @@ body::before {
   backdrop-filter: blur(3px);
 }
 
+/* The win card can be tucked away to look at the cube: tap outside it (or
+   "Peek at the cube"); a pill brings it back. The cube keeps its glowing
+   win line and can be spun meanwhile. */
+#banner { transition: background 0.3s; }
+#banner .banner-rays { transition: opacity 0.3s; }
+#banner .banner-card { transition: transform 0.35s cubic-bezier(0.2, 0.9, 0.3, 1), opacity 0.3s; }
+#banner.peek { background: transparent; pointer-events: none; }
+#banner.peek .banner-rays { opacity: 0; }
+#banner.peek .banner-card { transform: translateY(130%); opacity: 0; pointer-events: none; }
+
+.btn-peek {
+  display: block;
+  margin: 10px auto 0;
+  background: none;
+  border: none;
+  color: #7a5a2a;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.btn-peek:hover { color: #4a2e00; }
+
+.banner-peekback {
+  position: fixed;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+  transform: translate(-50%, 200%);
+  z-index: 41;
+  pointer-events: auto;
+  opacity: 0;
+  transition: transform 0.35s cubic-bezier(0.2, 0.9, 0.3, 1), opacity 0.3s;
+  font-family: 'Lilita One', 'Fredoka', sans-serif;
+  font-size: 1.15rem;
+  letter-spacing: 0.03em;
+  color: #4a2e00;
+  padding: 11px 22px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  background: linear-gradient(180deg, #ffe58a 0%, #ffc632 40%, #f59d00 100%);
+  box-shadow: 0 5px 0 #a86300, 0 8px 18px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+
+#banner.peek .banner-peekback { transform: translate(-50%, 0); opacity: 1; }
+
+/* Phones and tablets: the card sits at the bottom, over the dice and
+   message, so the cube — and where the win happened — stays in view. */
+@media (max-width: 999px) {
+  #banner { align-items: flex-end; padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); }
+  #banner .banner-rays { top: 80%; }
+  #banner .banner-card { width: min(94vw, 460px); }
+}
+
 /* Golden rays wheeling behind the win card. */
 .banner-rays {
   position: absolute;

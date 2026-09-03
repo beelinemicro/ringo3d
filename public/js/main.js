@@ -743,7 +743,19 @@ function endGame(winnerIdx, twister) {
   }, 900);
 }
 
+// Tuck the win card away to see the cube (tap outside it), or bring it back.
+function peekBanner(on) {
+  $('banner').classList.toggle('peek', on);
+}
+
+$('banner').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget || e.target.classList.contains('banner-rays')) { sfx.click(); peekBanner(true); }
+});
+$('btn-banner-peek').addEventListener('click', () => { sfx.click(); peekBanner(true); });
+$('btn-banner-peekback').addEventListener('click', () => { sfx.click(); peekBanner(false); });
+
 function showBanner(text, sub, winnerIdx) {
+  peekBanner(false);
   $('banner-text').classList.toggle('legendary', /DOUBLE|TRIPLE|QUADRUPLE|MEGA/.test(text));
   setBannerText(text);
   $('banner-sub').innerHTML = winnerIdx !== null
