@@ -731,8 +731,7 @@ function endGame(winnerIdx, twister) {
     // Watchers celebrate every winner — they have no dog in the fight.
     const lost = (mode === 'ai' && state.players[winnerIdx].isBot)
       || (mode === 'online' && winnerIdx !== net?.myIndex);
-    if (!lost) voice.party();
-    voice.play(n >= 3 ? 'triple-ringo' : n === 2 ? 'double-ringo' : 'ringo', { delay: lost ? 0 : 220 });
+    voice.win(n);
     if (lost) {
       sfx.lose();
     } else {

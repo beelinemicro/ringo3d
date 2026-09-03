@@ -43,12 +43,6 @@ CLIPS = {
     "twist":        (CALL,  "Twist!"),
 }
 
-# The crowd going wild at a win — ElevenLabs sound effects, not the voice.
-# Needs a key with the sound_generation permission: ELEVENLABS_SFX_KEY, or
-# SSM /ringo3d/elevenlabs-sfx-key, else the TTS key is tried.
-SFX = {
-    "party": ("A lively group of coworkers celebrating birthday in an office-style party", 6),
-}
 
 def trim_tail(path):
     """Cut the clip just after its last real sound (12% of peak) with a short
@@ -99,38 +93,7 @@ def gen(name, settings, text):
                 continue
             raise
 
-def sfx_key():
-    k = os.environ.get("ELEVENLABS_SFX_KEY")
-    if k:
-        return k
-    try:
-        return ssm("/ringo3d/elevenlabs-sfx-key")
-    except subprocess.CalledProcessError:
-        return KEY
-
-def gen_sfx(name, text, seconds):
-    path = os.path.join(OUT, name + ".mp3")
-    if "--force" not in sys.argv and os.path.exists(path) and os.path.getsize(path) > 0:
-        print(f"  skip  {name}")
-        return
-    body = json.dumps({"text": text, "duration_seconds": seconds, "prompt_influence": 0.5}).encode()
-    req = urllib.request.Request("https://api.elevenlabs.io/v1/sound-generation?output_format=mp3_44100_96",
-                                 data=body, method="POST", headers={"xi-api-key": sfx_key(), "Content-Type": "application/json", "Accept": "audio/mpeg"})
-    try:
-        with urllib.request.urlopen(req, timeout=120) as r:
-            data = r.read()
-    except urllib.error.HTTPError as e:
-        print(f"  {name}: HTTP {e.code} {e.read()[:160]!r} — the key needs the sound_generation permission")
-        return
-    with open(path, "wb") as f:
-        f.write(data)
-    print(f"  wrote {name} ({len(data)} bytes)")
-
 os.makedirs(OUT, exist_ok=True)
-if "--sfx-only" not in sys.argv:
-    for name, (settings, text) in CLIPS.items():
-        gen(name, settings, text)
-if "--voice-only" not in sys.argv:
-    for name, (text, seconds) in SFX.items():
-        gen_sfx(name, text, seconds)
+for name, (settings, text) in CLIPS.items():
+    gen(name, settings, text)
 print("done")
