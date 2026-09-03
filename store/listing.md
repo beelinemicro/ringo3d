@@ -74,6 +74,21 @@ Free, and it will stay that way.
 RINGO is an original game invented by Wendelin Leinweber.
 (c) 2026 Bee Line Microsystems LLC
 
+## Release notes (limit 500 per language)
+
+Play asks for these each time you upload a build. For a first release there is
+nothing "new" yet, so they simply say what the game is.
+
+    First release.
+    
+    RINGO 3D is a family board game lifted into a cube: three dice, five layers of glass, and rings you can steal from each other. Twist any slice Rubik's-style to swing whole lines into place. Five in a row through the cube, or all four corners of a face, wins.
+    
+    Play on one screen, against the computer, or online with anyone. No ads, no accounts, no tracking.
+
+Shorter, if you'd rather:
+
+    First release. Dad's board game, cubed: three dice, a 5x5x5 cube, rings to steal, and a Rubik's-style twist. Five in a row, or four corners, wins.
+
 ## Other listing fields
 
 - App or game: **Game**
