@@ -6,9 +6,7 @@ cd "$(dirname "$0")/.."
 
 BUCKET=ringo3d-web-352154386127-us-east-2
 DIST_ID=E1O9VORKDZL4G2
-# Stage two: point this at the ringo3d API Gateway WebSocket once the room
-# server is ported. Until then online play is off and nothing connects.
-WS_URL=null
+WS_URL=wss://o2l49t9p86.execute-api.us-east-2.amazonaws.com/prod
 
 BUILD=build/web
 rm -rf "$BUILD"

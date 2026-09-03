@@ -1,5 +1,5 @@
 {
-  "name": "RINGO 3D — The Family Board Game, Cubed",
+  "name": "RINGO 3D \u2014 The Family Board Game, Cubed",
   "short_name": "RINGO 3D",
   "description": "Dad's board game, cubed: a 5x5x5 cube, three dice, rings inside glass, and Rubik's-style twists.",
   "start_url": "/",
@@ -10,9 +10,50 @@
   "background_color": "#0d3d27",
   "theme_color": "#145238",
   "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ],
-  "categories": ["games", "entertainment"]
+  "categories": [
+    "games",
+    "entertainment"
+  ],
+  "screenshots": [
+    {
+      "src": "screenshots/phone-menu.jpg",
+      "sizes": "780x1320",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "RINGO 3D menu: Pass & Play, vs Computer, or Play Online"
+    },
+    {
+      "src": "screenshots/phone-game.jpg",
+      "sizes": "780x1320",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "A game in progress inside the cube"
+    },
+    {
+      "src": "screenshots/desktop-game.jpg",
+      "sizes": "1280x900",
+      "type": "image/jpeg",
+      "form_factor": "wide",
+      "label": "The RINGO 3D cube and dice"
+    }
+  ]
 }

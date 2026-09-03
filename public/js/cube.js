@@ -67,7 +67,9 @@ function backgroundTexture() {
   return tex;
 }
 
-export function createCube(canvas, { onTap = () => {}, onInteract = () => {} } = {}) {
+// `minimal` renders just the cube — no labels, table or scanner — for the
+// app icon and share images.
+export function createCube(canvas, { onTap = () => {}, onInteract = () => {}, minimal = false } = {}) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -93,6 +95,7 @@ export function createCube(canvas, { onTap = () => {}, onInteract = () => {} } =
   grid.position.y = -3.9;
   grid.material.transparent = true;
   grid.material.opacity = 0.35;
+  grid.visible = !minimal;
   scene.add(grid);
   const discTex = (() => {
     const c = document.createElement('canvas');
@@ -110,6 +113,7 @@ export function createCube(canvas, { onTap = () => {}, onInteract = () => {} } =
   const disc = new THREE.Mesh(new THREE.PlaneGeometry(11, 11), new THREE.MeshBasicMaterial({ map: discTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
   disc.rotation.x = -Math.PI / 2;
   disc.position.y = -3.85;
+  disc.visible = !minimal;
   scene.add(disc);
 
   // Everything that orbits.
@@ -153,6 +157,7 @@ export function createCube(canvas, { onTap = () => {}, onInteract = () => {} } =
   const labels = { col: [], row: [], layer: [] };
   function makeLabels() {
     for (const k of Object.keys(labels)) { labels[k].forEach((s) => { root.remove(s); s.material.map.dispose(); s.material.dispose(); }); labels[k] = []; }
+    if (minimal) return;
     const mk = (text, pos, color, scale = 0.62) => {
       const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: textTexture(text, { color }), transparent: true, depthWrite: false }));
       sp.position.copy(pos);
@@ -589,7 +594,7 @@ export function createCube(canvas, { onTap = () => {}, onInteract = () => {} } =
     if (idle && !pointer && now - lastInteract > 2500) view.yaw += dt * 0.16;
     const sweep = (Math.sin(now / 1900) * 0.5 + 0.5);
     scan.position.z = (HALF + 0.2 - sweep * (SIZE * S + 0.4)) * (1 + view.explode * EXPLODE_GAP / S);
-    scan.visible = view.explode < 0.05 && hl.winCells.size === 0;
+    scan.visible = !minimal && view.explode < 0.05 && hl.winCells.size === 0;
     root.rotation.set(view.pitch, view.yaw, 0);
     // Pulse the targets.
     const pulse = 0.5 + 0.5 * Math.sin(now / 160);
@@ -626,6 +631,8 @@ export function createCube(canvas, { onTap = () => {}, onInteract = () => {} } =
   return {
     sync, twist, previewTwist, highlightSlice, setView, setExplode, setFocus, resize, reset,
     get explode() { return view.explode > 0.5; },
+    setZoom(z) { view.zoom = z; fitCamera(); },
+    setAngles(yaw, pitch) { view.yaw = yaw; view.pitch = pitch; lastInteract = Infinity; },
     get focus() { return view.focus; },
     setIdle(v) { idle = v; },
     dispose() { running = false; renderer.dispose(); },

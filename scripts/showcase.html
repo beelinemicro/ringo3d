@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><title>RINGO 3D showcase</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Lilita+One&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  body { display: block; min-height: 0; overflow: hidden; }
+  #app { max-width: none; padding: 0; }
+  .og { width: 1200px; height: 630px; display: flex; align-items: center; justify-content: space-between; padding: 0 70px 0 80px; box-sizing: border-box; }
+  .og.square { width: 1200px; height: 1200px; flex-direction: column; justify-content: center; gap: 30px; padding: 40px; }
+  .og .hero { margin: 0; align-items: flex-start; }
+  .og.square .hero { align-items: center; }
+  .og .title { font-size: 7.4rem; }
+  .og .tagline { font-size: 2rem; margin-top: 14px; max-width: 520px; }
+  .og.square .tagline { text-align: center; max-width: 900px; }
+  .og .logo-ring { --rw: 84px; margin: 0 -9px; }
+  .og .frame { width: 560px; height: 560px; border-radius: 36px; overflow: hidden; background: #070b16; border: 4px solid rgba(120,170,255,0.25); box-shadow: 0 30px 70px rgba(0,0,0,0.55), 0 0 90px -10px #f0b000, inset 0 0 70px rgba(40,90,200,0.2); flex: none; }
+  .og.square .frame { width: 640px; height: 640px; }
+  .icon { width: 100vw; height: 100vh; background: #070b16; }
+  canvas { display: block; width: 100%; height: 100%; }
+</style></head>
+<body>
+<main id="app">
+<div id="stage"></div>
+</main>
+<script type="module">
+  import { createCube } from './js/cube.js';
+  import { idx, FACE_CORNERS } from './js/game.js';
+  const q = new URLSearchParams(location.search);
+  const kind = q.get('kind') || 'icon';
+  const stage = document.getElementById('stage');
+  const board = Array(125).fill(null);
+  // A lively mid-game: a red winning line down the front-left, rings of every colour.
+  [[0,0,0],[0,1,0],[0,2,0],[0,3,0],[0,4,0]].forEach(([x,y,z]) => { board[idx(x,y,z)] = 0; });
+  [[2,1,0],[3,1,1],[1,3,2],[4,0,0],[2,2,2],[3,4,0],[4,2,3],[1,1,4]].forEach(([x,y,z],i) => { board[idx(x,y,z)] = 1 + (i % 4); });
+  const win = [[0,1,2,3,4].map((y) => idx(0,y,0))];
+  let canvas;
+  if (kind === 'icon') {
+    stage.innerHTML = '<div class="icon"><canvas id="c"></canvas></div>';
+  } else {
+    const square = kind === 'og-square';
+    stage.innerHTML = `<div class="og ${square ? 'square' : ''}">
+      <div class="hero">
+        <div class="logo" aria-hidden="true"><span class="logo-ring c0"></span><span class="logo-ring c1"></span><span class="logo-ring c2"></span><span class="logo-ring c3"></span><span class="logo-ring c4"></span></div>
+        <h1 class="title" data-text="RINGO">RINGO<span class="title-3d">3D</span></h1>
+        <p class="tagline">Dad&rsquo;s game, cubed. Five in a row through the cube &mdash; with a twist!</p>
+      </div>
+      <div class="frame"><canvas id="c"></canvas></div></div>`;
+  }
+  canvas = document.getElementById('c');
+  const cube = createCube(canvas, { minimal: true });
+  cube.setAngles(-0.7, 0.42);
+  cube.setZoom(kind === 'icon' ? 0.9 : 1.05);
+  cube.sync({ board, winLines: win, current: 0, instant: true });
+  document.fonts.ready.then(() => setTimeout(() => { window.__ready = true; }, 1400));
+</script>
+</body></html>

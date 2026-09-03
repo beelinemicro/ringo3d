@@ -1,4 +1,4 @@
-// RINGO WebSocket handler — the AWS Lambda twin of server.js.
+// RINGO 3D WebSocket handler — the AWS Lambda twin of server.js.
 //
 // API Gateway WebSocket routes ($connect / $disconnect / $default) all land
 // here. Room state lives in DynamoDB (single table, on-demand):
@@ -20,10 +20,10 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, PutCommand, DeleteCommand, UpdateCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { ApiGatewayManagementApiClient, PostToConnectionCommand } from '@aws-sdk/client-apigatewaymanagementapi';
-import { GAME_VERSION, newGame, rollDice, applyRoll, applyPlace, isLegal, nextPlayer } from './game.js';
-import { chooseCell, chooseSteal } from './ai.js';
+import { GAME_VERSION, newGame, rollDice, applyRoll, applyPlace, applyTwist, canTwist, isLegal, nextPlayer } from './game.js';
+import { chooseCell, chooseSteal, chooseTwist } from './ai.js';
 
-const TABLE = process.env.RINGO_TABLE || 'ringo';
+const TABLE = process.env.RINGO_TABLE || 'ringo3d';
 const TTL_HOURS = 24;
 const MAX_ROOM_PLAYERS = 5;
 
@@ -256,12 +256,20 @@ async function runBots(code) {
       const st = r.state;
       if (st.phase === 'place' || st.phase === 'blocked') {
         const cell = st.phase === 'place' ? chooseCell(st, bot.level) : chooseSteal(st, bot.level);
-        if (cell) {
-          const { result, stolen } = applyPlace(st, cell[0], cell[1]);
+        if (cell !== null) {
+          const { result, stolen } = applyPlace(st, cell);
           event = { kind: result === 'next' ? 'place' : result, cell, stolen, by: bot.name };
           return true;
         }
         // Blocked and not worth stealing — fall through to a fresh roll.
+      } else if (st.phase === 'roll') {
+        // Twist instead of rolling when the bot thinks it pays.
+        const twist = chooseTwist(st, bot.level);
+        if (twist) {
+          const { result, winner } = applyTwist(st, twist);
+          event = { kind: result === 'win' ? 'win' : 'twist', twist, winner, by: bot.name };
+          return true;
+        }
       }
       const dice = rollDice();
       const result = applyRoll(st, dice);
@@ -697,16 +705,38 @@ async function onMessage(connId, msg, ip) {
         const phase = r.state.phase;
         if (phase !== 'place' && phase !== 'blocked') return false;
         if (idx !== r.state.current) return false;
-        const row = Number(msg.r);
-        const col = Number(msg.c);
-        if (!isLegal(r.state, row, col)) return false;
-        const { result, stolen } = applyPlace(r.state, row, col);
+        const cell = Number(msg.cell);
+        if (!Number.isInteger(cell) || !isLegal(r.state, cell)) return false;
+        const { result, stolen } = applyPlace(r.state, cell);
         event = {
           kind: result === 'next' ? 'place' : result,
-          cell: [row, col],
+          cell,
           stolen,
           by: r.players[idx].name,
         };
+        return true;
+      });
+      if (room && out === true) {
+        await broadcastState(room, event);
+        if (event.kind === 'win') await recordResult(room);
+        else await runBots(conn.code);
+      }
+      return;
+    }
+
+    // Instead of rolling: turn one slice of the cube a quarter turn. The
+    // rules decide whether it's allowed (start of the turn, not an undo)
+    // and who — if anyone — it hands the win to.
+    case 'twist': {
+      let event = null;
+      const { room, out } = await mutateRoom(conn.code, (r) => {
+        event = null;
+        if (!r.started) return false;
+        if (idx !== r.state.current) return false;
+        const twist = { axis: String(msg.axis), k: Number(msg.k), dir: Number(msg.dir) };
+        if (!canTwist(r.state, twist)) return false;
+        const { result, winner } = applyTwist(r.state, twist);
+        event = { kind: result === 'win' ? 'win' : 'twist', twist, winner, by: r.players[idx].name };
         return true;
       });
       if (room && out === true) {

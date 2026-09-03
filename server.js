@@ -1,18 +1,19 @@
-// RINGO server — serves the game and hosts online rooms over WebSockets.
+// RINGO 3D server — serves the game and hosts online rooms over WebSockets.
 //
 //   npm install
 //   npm start          → http://localhost:3000
 //
 // The server is authoritative for online games: it rolls the dice, validates
-// placements, and broadcasts the resulting state to every player in the room.
+// placements and twists, and broadcasts the resulting state to every player
+// in the room.
 
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
-import { GAME_VERSION, newGame, rollDice, applyRoll, applyPlace, isLegal, nextPlayer } from './public/js/game.js';
-import { chooseCell, chooseSteal } from './public/js/ai.js';
+import { GAME_VERSION, newGame, rollDice, applyRoll, applyPlace, applyTwist, canTwist, isLegal, nextPlayer } from './public/js/game.js';
+import { chooseCell, chooseSteal, chooseTwist } from './public/js/ai.js';
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'public');
@@ -263,15 +264,22 @@ async function runBots(room) {
       await sleep(BOT_DELAY);
       if (!rooms.has(room.code) || !room.started || st !== room.state || st.phase === 'over') return;
 
-      let cell = null;
-      if (st.phase === 'place') cell = chooseCell(st, bot.level);
-      else if (st.phase === 'blocked') cell = chooseSteal(st, bot.level);
-
-      let event;
-      if (cell) {
-        const { result, stolen } = applyPlace(st, cell[0], cell[1]);
-        event = { kind: result === 'next' ? 'place' : result, cell, stolen, by: bot.name };
-      } else {
+      let event = null;
+      if (st.phase === 'place' || st.phase === 'blocked') {
+        const cell = st.phase === 'place' ? chooseCell(st, bot.level) : chooseSteal(st, bot.level);
+        if (cell !== null) {
+          const { result, stolen } = applyPlace(st, cell);
+          event = { kind: result === 'next' ? 'place' : result, cell, stolen, by: bot.name };
+        }
+      } else if (st.phase === 'roll') {
+        // Twist instead of rolling when the bot thinks it pays.
+        const twist = chooseTwist(st, bot.level);
+        if (twist) {
+          const { result, winner } = applyTwist(st, twist);
+          event = { kind: result === 'win' ? 'win' : 'twist', twist, winner, by: bot.name };
+        }
+      }
+      if (!event) {
         // 'roll' phase, or blocked and not worth stealing — roll (again).
         const dice = rollDice();
         const result = applyRoll(st, dice);
@@ -519,12 +527,27 @@ function handleMessage(ws, msg) {
       const phase = room.state.phase;
       if (phase !== 'place' && phase !== 'blocked') return;
       if (ws.playerIdx !== room.state.current) return;
-      const r = Number(msg.r);
-      const c = Number(msg.c);
-      if (!isLegal(room.state, r, c)) return;
+      const cell = Number(msg.cell);
+      if (!Number.isInteger(cell) || !isLegal(room.state, cell)) return;
       const by = room.players[ws.playerIdx].name;
-      const { result, stolen } = applyPlace(room.state, r, c);
-      broadcastState(room, { kind: result === 'next' ? 'place' : result, cell: [r, c], stolen, by });
+      const { result, stolen } = applyPlace(room.state, cell);
+      broadcastState(room, { kind: result === 'next' ? 'place' : result, cell, stolen, by });
+      if (result === 'win') recordResult(room);
+      else runBots(room);
+      break;
+    }
+
+    // Instead of rolling: turn one slice of the cube a quarter turn. The
+    // rules decide whether it's allowed (start of the turn, not an undo)
+    // and who — if anyone — it hands the win to.
+    case 'twist': {
+      if (!room?.started) return;
+      if (ws.playerIdx !== room.state.current) return;
+      const twist = { axis: String(msg.axis), k: Number(msg.k), dir: Number(msg.dir) };
+      if (!canTwist(room.state, twist)) return;
+      const by = room.players[ws.playerIdx].name;
+      const { result, winner } = applyTwist(room.state, twist);
+      broadcastState(room, { kind: result === 'win' ? 'win' : 'twist', twist, winner, by });
       if (result === 'win') recordResult(room);
       else runBots(room);
       break;
@@ -657,5 +680,5 @@ setInterval(() => {
 }, 30000);
 
 server.listen(PORT, () => {
-  console.log(`RINGO is ready → http://localhost:${PORT}`);
+  console.log(`RINGO 3D is ready → http://localhost:${PORT}`);
 });

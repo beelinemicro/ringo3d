@@ -20,17 +20,11 @@ same dice, same shout.
 
 ## Status
 
-**Stage one** (this repo, playable locally): the cube, twists, Pass & Play,
-vs Computer (easy / normal / hard bots that place, steal and twist), the
-caller's voice, install-to-phone.
-
-Live at **https://ringo3d.beelinemicrosystems.com** (static site; Pass &
-Play and vs Computer run entirely in the browser).
-
-**Stage two** (next): online family rooms, spectators, family stats — the
-WebSocket Lambda and DynamoDB table. `server.js`, `aws/ws-handler/` and
-`scripts/deploy-lambda.sh` are still the 2D game's copies and need porting
-to the cube's rules (cell indexes instead of `[row, col]`, the `twist` move).
+Live at **https://ringo3d.beelinemicrosystems.com**: the cube, twists, Pass
+& Play, vs Computer (easy / normal / hard bots that place, steal and twist),
+online family rooms with invite links, spectators who can queue for the next
+game, emoji reactions, the family Hall of Fame and full stats, the caller's
+voice, and install-to-phone with offline local play.
 
 ## Run it
 
@@ -55,13 +49,28 @@ Same shape as RINGO's, with its own resources (tagged `project=ringo3d`):
   `Cache-Control: no-cache`; the service worker is network-first with cache
   fallback, so the installed app is never stale online and still plays
   offline.
-- **Multiplayer**: not yet — stage two adds the API Gateway WebSocket API,
-  Lambda and DynamoDB table, and `scripts/deploy-web.sh` then gets the
-  `wss://` endpoint in `WS_URL`.
+- **Multiplayer**: API Gateway WebSocket API `o2l49t9p86` (us-east-2, stage
+  `prod`) → Lambda `ringo3d-ws` (Node 20, 256 MB, 30s timeout;
+  `aws/ws-handler/index.mjs` + the shared `game.js` and `ai.js`) → DynamoDB
+  table `ringo3d` (on-demand, TTL on `ttl`). The Lambda is authoritative: it
+  rolls the dice, validates every placement and twist, and plays the bots.
+  Role `ringo3d-ws-role` (inline policy `ringo3d-ws-access`). CloudWatch
+  alarm `ringo3d-ws-errors` emails via the shared SNS topic `ringo-alerts`.
+
+Same single-table layout as RINGO: `ROOM#<code>`, `CONN#<id>`, `WATCH#<id>`,
+`PRESENCE#<id>`, `LOG#<utc>#<id>`, `STAT#<name>`, `H2H#<a>#<b>`, `LEGEND#…`.
 
 ```bash
 ./scripts/deploy-web.sh      # web client → S3 + CloudFront invalidation
+./scripts/deploy-lambda.sh   # room server → Lambda (bundles game.js + ai.js)
 ```
+
+**When changing the rules**, bump `GAME_VERSION` in `public/js/game.js` and
+deploy both halves; open pages that hear a newer number show the "new rules
+— tap to refresh" banner.
+
+The app icon, share images and store screenshots are rendered from the real
+cube: `scripts/make-assets.mjs` + `scripts/showcase.html` (see the header).
 
 ## How it's built
 
@@ -79,7 +88,12 @@ Same shape as RINGO's, with its own resources (tagged `project=ringo3d`):
   (spin direction derived from `twistMap`), the exploded "floors" view,
   layer focus, a scanner sweep, and the win rods.
 - `public/js/main.js` — screens, dice, turn flow, the twist picker, bots,
-  banner, voice, install.
+  banner, voice, install, and online play (rooms, rejoin by seat token,
+  spectators, reactions, stats, presence). A twist broadcast animates on
+  every screen in the room before the new arrangement lands; state
+  messages that arrive mid-twist queue up behind it.
+- `server.js` — the local room server (`npm start`) and the reference for
+  the protocol; `aws/ws-handler/index.mjs` is its Lambda twin.
 - `public/js/voice.js` + `public/audio/*.mp3` — the caller (ElevenLabs
   clips generated once by `scripts/make-voices.py`; key from SSM, never in
   the browser).

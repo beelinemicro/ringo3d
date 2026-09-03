@@ -1,12 +1,12 @@
 {
   "name": "ringo3d",
   "version": "1.0.0",
-  "description": "RINGO 3D \u2014 Dad's board game, cubed: a 5x5x5 cube, three dice, rings inside glass, and Rubik's-style twists.",
+  "description": "RINGO 3D — Dad's board game, cubed: a 5x5x5 cube, three dice, rings inside glass, and Rubik's-style twists.",
   "type": "module",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node test/game.test.js"
+    "test": "node test/game.test.js && node test/server.test.js"
   },
   "dependencies": {
     "ws": "^8.18.0"
