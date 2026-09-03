@@ -14,7 +14,7 @@ import json, os, subprocess, sys, time, urllib.request, urllib.error
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "public", "audio")
 URL = "https://api.elevenlabs.io/v1/text-to-speech/{vid}?output_format=mp3_44100_96"
 MODEL = "eleven_flash_v2_5"
-VOICE = os.environ.get("RINGO_VOICE_ID", "dHd5gvgSOzSfduK4CvEg")
+VOICE = os.environ.get("RINGO_VOICE_ID", "UWJl1B13q5VpsNpkh2Mo")
 
 def ssm(name):
     return subprocess.check_output(
@@ -24,23 +24,23 @@ def ssm(name):
 
 KEY = os.environ.get("ELEVENLABS_API_KEY") or ssm("/storymaker/elevenlabs-api-key")
 
-# A big game-show caller. All-caps text with "!!!" and a very low stability
-# made the voice growl after the word ("RINGOOO-ugh"), so shouts use normal
-# case, one or two "!" and middling stability; trim_tail() below drops any
-# breath or growl left after the last real sound.
-SHOUT = {"stability": 0.4, "similarity_boost": 0.8, "style": 0.6, "use_speaker_boost": True}
-CALM = {"stability": 0.5, "similarity_boost": 0.8, "style": 0.45, "use_speaker_boost": True}
-CALL = {"stability": 0.45, "similarity_boost": 0.8, "style": 0.5, "use_speaker_boost": True}
+# The caller is a calm, matter-of-fact British voice — the tone of a ship's
+# computer announcing a result, not a game-show host. High stability and
+# almost no style keep the delivery even; periods, not exclamation marks,
+# keep it from shouting. (An earlier excited voice growled after all-caps
+# "!!!" lines; trim_tail() below still drops any breath left after the last
+# real sound.)
+CALM = {"stability": 0.72, "similarity_boost": 0.8, "style": 0.12, "use_speaker_boost": True}
 
 # filename -> (settings, text). Names must match public/js/voice.js.
 CLIPS = {
-    "ringo":        (SHOUT, "Ringo!!"),
-    "double-ringo": (CALM,  "Double Ringo!"),
-    "triple-ringo": (CALM,  "Triple Ringo!"),
-    "stolen":       (CALL,  "Stolen!"),
-    "double-wild":  (CALL,  "Double wild!"),
-    "triple-wild":  (SHOUT, "Triple wild!"),
-    "twist":        (CALL,  "Twist!"),
+    "ringo":        (CALM, "Ringo."),
+    "double-ringo": (CALM, "Double Ringo."),
+    "triple-ringo": (CALM, "Triple Ringo."),
+    "stolen":       (CALM, "Stolen."),
+    "double-wild":  (CALM, "Double wild."),
+    "triple-wild":  (CALM, "Triple wild."),
+    "twist":        (CALM, "Twist."),
 }
 
 

@@ -23,8 +23,8 @@ same dice, same shout.
 Live at **https://ringo3d.beelinemicrosystems.com**: the cube, twists, Pass
 & Play, vs Computer (easy / normal / hard bots that place, steal and twist),
 online family rooms with invite links, spectators who can queue for the next
-game, emoji reactions, the family Hall of Fame and full stats, the caller's
-voice, and install-to-phone with offline local play.
+game, emoji reactions, the family Hall of Fame and full stats, the
+announcer's voice, and install-to-phone with offline local play.
 
 ## Run it
 
@@ -94,9 +94,11 @@ cube: `scripts/make-assets.mjs` + `scripts/showcase.html` (see the header).
   messages that arrive mid-twist queue up behind it.
 - `server.js` — the local room server (`npm start`) and the reference for
   the protocol; `aws/ws-handler/index.mjs` is its Lambda twin.
-- `public/js/voice.js` + `public/audio/*.mp3` — the caller (ElevenLabs
-  clips generated once by `scripts/make-voices.py`; key from SSM, never in
-  the browser).
+- `public/js/voice.js` + `public/audio/*.mp3` — the announcer: a calm,
+  matter-of-fact British voice stating each result (ElevenLabs clips
+  generated once by `scripts/make-voices.py`; key from SSM, never in the
+  browser). Lines are written with periods, not exclamation marks, and the
+  generator trims any breath after the last sound.
 - `public/js/music.js` + `public/audio/mind.mp3` — the music bed: a
   hypnotic instrumental composed by Eleven Music (`scripts/make-music.py`),
   built into an exact 110-second loop with a 10-second crossfade seam, a

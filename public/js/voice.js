@@ -1,4 +1,5 @@
-// The caller's voice — a handful of ElevenLabs clips shipped as static MP3s
+// The announcer — a calm, matter-of-fact British voice, like a ship's
+// computer stating the result. A handful of ElevenLabs clips as static MP3s
 // (see scripts/make-voices.py). Honours the same mute toggle as the SFX;
 // a missing clip fails silently, the game never depends on it.
 
@@ -19,7 +20,7 @@ function clip(name) {
   return a;
 }
 
-// Warm the cache from a user gesture so the first shout isn't late.
+// Warm the cache from a user gesture so the first line isn't late.
 export function preloadVoices() {
   NAMES.forEach(clip);
 }
