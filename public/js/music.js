@@ -10,7 +10,7 @@
 import { context, isMuted } from './sound.js';
 
 const FILE = 'audio/mind.mp3';
-const LOOP_SECONDS = 110;
+const LOOP_SECONDS = 95;
 const LOOP_START = 1.5;
 const LEVEL = 0.3;
 const KEY = 'ringo3dMusic';

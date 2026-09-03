@@ -25,10 +25,17 @@ RAW_WAV = os.path.join(BUILD, "music-raw.wav")
 OUT = os.path.join(ROOT, "public", "audio", "mind.mp3")
 
 RAW_SECONDS = 120
-CROSSFADE = 10
-LOOP_SECONDS = RAW_SECONDS - CROSSFADE  # 110 — keep it a multiple of 1/200, 1/240 and 1/528 s
+CROSSFADE = 8
 HEAD = 3
 RATE = 44100
+MUSIC_JS = os.path.join(ROOT, "public", "js", "music.js")
+
+# Composed takes tend to start soft and end in silence; the loop is cut from
+# the solid part between them (found by loudness), so the seam blends music
+# with music. The loop length is a whole number of seconds — a whole number
+# of cycles of the 200/240/528 Hz beds — and is written into music.js.
+LEAD_DB = -28.0   # the loop starts at the first second at least this loud
+TAIL_DB = -35.0   # ...and ends at the last second at least this loud
 
 PROMPT = (
     "Cinematic, hypnotic electronic score with heart: a precise, pulsing synth arpeggio "
@@ -66,18 +73,43 @@ def compose():
 def run(args):
     subprocess.run(["ffmpeg", "-v", "error", "-y", *args], check=True)
 
+def loudness_per_second():
+    import array, math
+    raw = subprocess.run(["ffmpeg", "-v", "error", "-i", RAW_WAV, "-f", "s16le", "-ac", "1", "-ar", str(RATE), "-"],
+                         capture_output=True, check=True).stdout
+    pcm = array.array("h")
+    pcm.frombytes(raw)
+    out = []
+    for i in range(len(pcm) // RATE):
+        seg = pcm[i * RATE:(i + 1) * RATE]
+        out.append(20 * math.log10(max(1e-9, math.sqrt(sum(v * v for v in seg) / RATE) / 32768)))
+    return out
+
+def solid_span():
+    """(start, end) in whole seconds of the take's solid music."""
+    db = loudness_per_second()
+    start = next((i for i, v in enumerate(db) if v >= LEAD_DB), 0)
+    end = next((i + 1 for i in range(len(db) - 1, -1, -1) if db[i] >= TAIL_DB), len(db))
+    return start, end
+
 def build():
     """Three simple passes (one crossfade with both inputs read separately —
     ffmpeg deadlocks when they come from one split of the same stream)."""
-    L, C, H = LOOP_SECONDS, CROSSFADE, HEAD
+    C, H = CROSSFADE, HEAD
+    a, b = solid_span()
+    L = b - a - C
+    if L < 60:
+        sys.exit(f"the take only has {b - a}s of solid music — compose again")
+    print(f"solid music from {a}s to {b}s → loop {L}s (crossfade {C}s)")
     loop_wav = os.path.join(BUILD, "music-loop.wav")
     mix_wav = os.path.join(BUILD, "music-mix.wav")
-    # 1. the loop: everything after the first C seconds, with the track's tail
-    #    crossfaded into its head — exactly L seconds, seamless end-to-start
+    # 1. the loop: the solid span minus its first C seconds, with its tail
+    #    crossfaded (equal-power) into those first C seconds — exactly L
+    #    seconds, seamless end-to-start
     run(["-i", RAW_WAV, "-i", RAW_WAV, "-filter_complex",
-         f"[0:a]apad,atrim={C}:{RAW_SECONDS},asetpts=PTS-STARTPTS[body];"
-         f"[1:a]atrim=0:{C},asetpts=PTS-STARTPTS[head];"
-         f"[body][head]acrossfade=d={C}:c1=tri:c2=tri,atrim=0:{L},asetpts=PTS-STARTPTS[o]",
+         f"[0:a]atrim={a + C}:{b},asetpts=PTS-STARTPTS[body];"
+         f"[1:a]atrim={a}:{a + C},asetpts=PTS-STARTPTS[head];"
+         f"[body][head]acrossfade=d={C}:c1=qsin:c2=qsin,atrim=0:{L},asetpts=PTS-STARTPTS[o]",
          "-map", "[o]", loop_wav])
     # 2. the mind bed: gamma binaural (200 Hz left / 240 Hz right) and a faint
     #    528 Hz Solfeggio tone — L seconds is a whole number of cycles of each
@@ -98,6 +130,13 @@ def build():
         print(f"  {os.path.basename(f)}: {float(d):.3f}s")
     dur = subprocess.check_output(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", OUT]).decode().strip()
     print(f"wrote {OUT}: {os.path.getsize(OUT)} bytes, {float(dur):.2f}s (loop {L}s between 1.5s and {1.5 + L}s)")
+    # Keep the player's loop length in step with the file.
+    import re
+    js = open(MUSIC_JS).read()
+    js2 = re.sub(r"const LOOP_SECONDS = \d+;", f"const LOOP_SECONDS = {L};", js)
+    if js2 != js:
+        open(MUSIC_JS, "w").write(js2)
+        print(f"music.js: LOOP_SECONDS = {L}")
 
 if "--build" not in sys.argv:
     compose()
