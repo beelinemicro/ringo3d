@@ -3,6 +3,6 @@
       "target": {
         "namespace": "android_app",
         "package_name": "com.beelinemicrosystems.ringo3d",
-        "sha256_cert_fingerprints": ["47:9E:F8:9D:B4:15:F0:A4:3C:3F:B9:2C:61:17:B9:C3:41:06:05:A2:6E:9E:BB:8A:FC:13:0E:C2:F4:21:0F:64", "74:A3:2F:E0:61:D4:5D:19:38:66:1A:E5:AF:44:C5:4B:03:06:53:7D:DC:F5:79:FC:FE:38:68:03:6F:F6:D1:7B"]
+        "sha256_cert_fingerprints": ["47:9E:F8:9D:B4:15:F0:A4:3C:3F:B9:2C:61:17:B9:C3:41:06:05:A2:6E:9E:BB:8A:FC:13:0E:C2:F4:21:0F:64"]
       }
     }]

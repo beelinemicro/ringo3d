@@ -32,24 +32,35 @@ This is the *upload* key. With Play App Signing switched on, Google holds
 the real app signing key, so losing this one is recoverable by requesting an
 upload key reset, but it is still a nuisance.
 
-## Domain verification — one step left
+## Domain verification
 
 `public/.well-known/assetlinks.json` proves the app and the site belong to
-the same owner. Without a match, the app shows a browser URL bar across the
-top instead of running full screen.
+the same owner. Without a match, the app shows a browser address bar across
+the top instead of running full screen.
 
-It currently lists the **upload** key's fingerprint. Once the bundle is
-uploaded, Play generates its own app signing key, and that fingerprint must
-be added too:
+For this app Play uses the **upload key as the app signing key**, so there is
+only one certificate on the App signing page and the file needs only that one
+fingerprint, `47:9E:F8:9D...`. It is already there and verified.
 
-1. Play Console → your app → Test and release → Setup → App signing
-2. Copy the SHA-256 from **App signing key certificate**
-3. `./node_modules/.bin/bubblewrap fingerprint add <that SHA-256> --name "play app signing"`
+If Play ever regenerates or adds a separate app signing key, add it too:
+
+1. Play Console, with **RINGO 3D selected in the app switcher**, then App signing
+2. Copy the SHA-256 under **App signing key certificate**
+3. `./node_modules/.bin/bubblewrap fingerprint add <sha256> --name "play app signing"`
 4. `./node_modules/.bin/bubblewrap fingerprint generateAssetLinks --output ../public/.well-known/assetlinks.json`
 5. `cd .. && ./scripts/deploy-web.sh`
 
-Check it with Google's tester:
-https://developers.google.com/digital-asset-links/tools/generator
+**Check the app switcher before copying anything.** The App signing page shows
+whichever app is selected, with nothing on the page naming it, so it is very
+easy to copy another app's key. The tell is the upload key: on RINGO 3D it
+reads `47:9E:F8:9D...`. If it doesn't, you are on a different app.
+
+`bubblewrap fingerprint list` shows what is registered, and `remove <sha256>`
+takes one out.
+
+**Chrome caches the verdict, including failures.** After changing the file, a
+force stop is not enough. Uninstall the app, clear Chrome's cache, then
+reinstall.
 
 ## Browsers, and the address bar
 
