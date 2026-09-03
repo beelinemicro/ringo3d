@@ -24,11 +24,13 @@ same dice, same shout.
 vs Computer (easy / normal / hard bots that place, steal and twist), the
 caller's voice, install-to-phone.
 
-**Stage two** (next): online family rooms, spectators, family stats, the
-`ringo3d.beelinemicrosystems.com` deployment (own S3 bucket, CloudFront,
-WebSocket Lambda and DynamoDB table). `server.js`, `aws/ws-handler/` and
-`scripts/deploy-*.sh` are still the 2D game's copies and need porting to
-the cube's rules (cell indexes instead of `[row, col]`, the `twist` move).
+Live at **https://ringo3d.beelinemicrosystems.com** (static site; Pass &
+Play and vs Computer run entirely in the browser).
+
+**Stage two** (next): online family rooms, spectators, family stats — the
+WebSocket Lambda and DynamoDB table. `server.js`, `aws/ws-handler/` and
+`scripts/deploy-lambda.sh` are still the 2D game's copies and need porting
+to the cube's rules (cell indexes instead of `[row, col]`, the `twist` move).
 
 ## Run it
 
@@ -39,8 +41,27 @@ npm test           # rules-engine tests
 ```
 
 Pass & Play and vs Computer need no server at all — `server.js` only serves
-the files. To try it on a phone from WSL, forward the port on the Windows
-side (see the notes in the session that built this) or `npx localtunnel --port 3000`.
+the files.
+
+## AWS deployment (ringo3d.beelinemicrosystems.com)
+
+Same shape as RINGO's, with its own resources (tagged `project=ringo3d`):
+
+- **Web**: private S3 bucket `ringo3d-web-352154386127-us-east-2` behind
+  CloudFront `E1O9VORKDZL4G2` (`d11oqbipww0xi9.cloudfront.net`), origin
+  access control shared with RINGO, alias `ringo3d.beelinemicrosystems.com`
+  (Route 53 A/AAAA in zone `Z0157479MORFOGXW3GGR`, wildcard ACM cert
+  `*.beelinemicrosystems.com`). Files are uploaded with
+  `Cache-Control: no-cache`; the service worker is network-first with cache
+  fallback, so the installed app is never stale online and still plays
+  offline.
+- **Multiplayer**: not yet — stage two adds the API Gateway WebSocket API,
+  Lambda and DynamoDB table, and `scripts/deploy-web.sh` then gets the
+  `wss://` endpoint in `WS_URL`.
+
+```bash
+./scripts/deploy-web.sh      # web client → S3 + CloudFront invalidation
+```
 
 ## How it's built
 
