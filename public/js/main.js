@@ -233,6 +233,7 @@ function myTurn() {
 function renderChips() {
   const wrap = $('player-chips');
   wrap.innerHTML = '';
+  wrap.classList.toggle('many', state.players.length >= 4);
   state.players.forEach((p, i) => {
     const chip = document.createElement('div');
     chip.className = 'chip';
@@ -663,6 +664,10 @@ function refreshTwistUI() {
   $('twist-ccw').classList.toggle('on', twistSel.dir === -1);
   const ok = state && canTwist(state, twistSel);
   $('btn-twist-go').disabled = !ok;
+  // The button says what it will do — on phones it stands in for the message.
+  const short = twistSel.axis === 'z' ? LAYERS[twistSel.k].name
+    : twistSel.axis === 'x' ? `col ${COL_LABELS[twistSel.k]}` : `row ${twistSel.k + 1}`;
+  $('btn-twist-go').textContent = ok ? `Twist ${short} ${twistSel.dir === 1 ? '↻' : '↺'}` : "Can't undo that";
   if (state && !ok && state.phase === 'roll') setMessage("That would just undo the last twist — pick another.");
   else if (state && state.phase === 'roll') setMessage(`Twist ${sliceLabel(twistSel)} ${twistSel.dir === 1 ? 'right' : 'left'}?`);
 }
