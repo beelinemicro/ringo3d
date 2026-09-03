@@ -829,7 +829,9 @@ body::before {
 /* ---- The open-table list on the online setup screen ---- */
 
 .tables {
-  width: min(400px, 92vw);
+  /* Sits inside #setup-body, so it fills that card rather than setting its
+     own width — which was wider than the card and spilled out to the right. */
+  width: 100%;
   margin-top: 6px;
   padding: 12px 14px 14px;
   border-radius: 16px;
@@ -839,6 +841,7 @@ body::before {
 
 .tables h3 {
   margin: 0 0 8px;
+  text-align: center;
   font-size: 0.9rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
