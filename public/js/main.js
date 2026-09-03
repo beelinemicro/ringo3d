@@ -154,6 +154,13 @@ function ensureCube() {
     b.textContent = l.name;
     b.addEventListener('click', () => {
       sfx.click();
+      if (twistOpen) {
+        // While choosing a twist, the chips pick the layer to twist.
+        twistSel.axis = 'z';
+        twistSel.k = z;
+        selectTwist();
+        return;
+      }
       cube.setFocus(cube.focus === z ? null : z);
       syncLayerChips();
     });
@@ -543,13 +550,23 @@ function openTwist() {
   twistOpen = true;
   $('side-panel').classList.add('twisting');
   $('twist-panel').classList.remove('hidden');
+  if (cube.focus !== null) {
+    twistSel.axis = 'z';
+    twistSel.k = cube.focus;
+  }
+  renderCube();
+  selectTwist();
+  fitHolo();
+}
+
+// The panel, the layer chips and the cube all show the same chosen slice:
+// a layer twist focuses that layer; a column or row twist clears the focus.
+function selectTwist() {
+  setFocusLayer(twistSel.axis === 'z' ? twistSel.k : null);
   buildSliceButtons();
   refreshTwistUI();
-  renderCube();
   cube.highlightSlice(twistSel);
   cube.previewTwist(twistSel);
-  setMessage('Pick a layer, column or row and a direction — then Twist it!');
-  fitHolo();
 }
 
 function closeTwist(rerender = true) {
@@ -575,7 +592,7 @@ function buildSliceButtons() {
     } else {
       b.textContent = String(k + 1);
     }
-    b.addEventListener('click', () => { sfx.click(); twistSel.k = k; refreshTwistUI(); cube.highlightSlice(twistSel); cube.previewTwist(twistSel); });
+    b.addEventListener('click', () => { sfx.click(); twistSel.k = k; selectTwist(); });
     wrap.appendChild(b);
   }
 }
@@ -602,10 +619,7 @@ $('btn-twist-go').addEventListener('click', () => {
 $('twist-axis').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
   sfx.click();
   twistSel.axis = b.dataset.axis;
-  buildSliceButtons();
-  refreshTwistUI();
-  cube.highlightSlice(twistSel);
-  cube.previewTwist(twistSel);
+  selectTwist();
 }));
 $('twist-cw').addEventListener('click', () => { sfx.click(); twistSel.dir = 1; refreshTwistUI(); cube.previewTwist(twistSel); });
 $('twist-ccw').addEventListener('click', () => { sfx.click(); twistSel.dir = -1; refreshTwistUI(); cube.previewTwist(twistSel); });
