@@ -52,6 +52,21 @@ function cleanup() {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// The server writes stats.json asynchronously after broadcasting a win, so
+// a client can see the result before the file exists (it did, on a slow CI
+// runner). Wait for the file — and for it to hold what we're looking for.
+async function readStats(pred = () => true, ms = 5000) {
+  const t0 = Date.now();
+  for (;;) {
+    try {
+      const data = JSON.parse(fs.readFileSync(STATS_FILE, 'utf8'));
+      if (pred(data)) return data;
+    } catch { /* not written yet, or mid-write */ }
+    if (Date.now() - t0 > ms) throw new Error('timed out waiting for stats.json');
+    await sleep(25);
+  }
+}
+
 // A test client: records every message, with polling helpers to await one.
 function client() {
   return new Promise((resolve, reject) => {
@@ -239,7 +254,7 @@ try {
     const chipMoves = host.msgs.filter((m) => m.type === 'state' && m.event?.by === 'Chip').length;
     assert.ok(chipMoves > 0, 'bot actually played');
 
-    const data = JSON.parse(fs.readFileSync(STATS_FILE, 'utf8'));
+    const data = await readStats((d) => d.players?.steve);
     const s = data.players.steve;
     assert.ok(s, 'human result recorded');
     assert.equal(s.wins + s.losses, 1, 'exactly one game recorded');
@@ -299,7 +314,7 @@ try {
     await a.waitFor('watchers', (m) => m.n === 0);
     gw.close();
 
-    const data = JSON.parse(fs.readFileSync(STATS_FILE, 'utf8'));
+    const data = await readStats((d) => d.h2h?.['dad|steve']);
     const riv = data.h2h['dad|steve'];
     assert.ok(riv, 'rivalry recorded under sorted key');
     assert.equal(riv.aWins + riv.bWins, 1, 'exactly one head-to-head result');
