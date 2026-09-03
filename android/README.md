@@ -51,6 +51,25 @@ be added too:
 Check it with Google's tester:
 https://developers.google.com/digital-asset-links/tools/generator
 
+## Browsers, and the address bar
+
+A Trusted Web Activity only runs full screen when the device's default
+browser can act as a TWA provider, and the helper library accepts only
+Chrome and its beta/dev/canary builds. On a phone defaulting to Brave,
+Firefox, Samsung Internet or anything else, the app would otherwise open as
+a Custom Tab, which always shows a non-editable address bar across the top.
+
+`twa-manifest.json` therefore sets `"fallbackType": "webview"`. With Chrome
+present the app uses the real TWA path, which shares storage with the
+browser; without it, the app falls back to an embedded view that has no
+address bar. Do not set this back to `customtabs` — that is what put the bar
+there in the first place.
+
+An address bar on a device that *does* have Chrome means something else:
+either the verification file does not list the signing key Play used, or
+Chrome cached an earlier failed check. Force stop the app, and reinstall if
+that doesn't clear it.
+
 ## Store listing notes
 
 - **Data safety**: the game stores no personal data. A visit is recorded as
