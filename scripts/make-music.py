@@ -31,12 +31,14 @@ HEAD = 3
 RATE = 44100
 
 PROMPT = (
-    "Cinematic, hypnotic electronic score: a precise, pulsing synth arpeggio around 100 BPM, "
-    "a deep sub-bass drone, warm analog pads, soft ticking percussion and subtle glitch "
+    "Cinematic, hypnotic electronic score with heart: a precise, pulsing synth arpeggio "
+    "around 100 BPM over a deep sub-bass drone and warm analog pads; underneath, a soft, "
+    "slow heartbeat-like drum pulse with gentle brushed percussion; and Tibetan singing "
+    "bowls struck now and then, ringing out with long shimmering decays. Subtle glitch "
     "textures. Layers build slowly and never fully resolve — focused, clever, quietly "
-    "euphoric, the feeling of a mind clicking into genius mode. Steady tempo throughout, no "
-    "vocals, no big drops, no intro or outro: an evolving texture that could loop forever, "
-    "tuned around a sustained 528 Hz drone."
+    "euphoric, the feeling of a mind clicking into genius mode. Steady tempo throughout, "
+    "no vocals, no big drops, no intro or outro: an evolving texture that could loop "
+    "forever, tuned around a sustained 528 Hz drone."
 )
 
 def ssm(name):
