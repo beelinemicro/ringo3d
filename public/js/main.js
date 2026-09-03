@@ -386,11 +386,24 @@ window.addEventListener('resize', () => fitHolo(true));
 // ---------- showmanship ----------
 
 let calloutTimer = null;
+const CALLOUT_POP = 1.12; // the peak scale of the callout animation (style.css)
 
 function showCallout(text, kind = '') {
   const el = $('callout');
-  el.firstElementChild.textContent = text;
-  el.className = 'callout';
+  const span = el.firstElementChild;
+  span.textContent = text;
+  el.className = 'callout'; // no animation while we measure
+  // Long shouts ("R-1-VIOLET!", "DOUBLE WILD!") are wider than the cube's
+  // panel on a big screen, and the panel clips them. Measure at the CSS
+  // size and shrink the font until it fits, leaving room for the pop
+  // animation's 1.12 overshoot.
+  span.style.fontSize = '';
+  const avail = el.clientWidth * (0.96 / CALLOUT_POP);
+  const natural = span.scrollWidth;
+  if (natural > avail && avail > 0) {
+    const size = parseFloat(getComputedStyle(span).fontSize) || 48;
+    span.style.fontSize = `${Math.max(14, size * (avail / natural)).toFixed(1)}px`;
+  }
   void el.offsetWidth;
   el.className = `callout show ${kind}`;
   clearTimeout(calloutTimer);
