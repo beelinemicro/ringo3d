@@ -1597,7 +1597,7 @@ body::before {
 /* Phones and tablets: the card sits at the bottom, over the dice and
    message, so the cube — and where the win happened — stays in view. */
 @media (max-width: 999px) {
-  #banner { align-items: flex-end; padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); }
+  #banner { align-items: flex-end; padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); background: rgba(3, 20, 12, 0.3); }
   #banner .banner-rays { top: 80%; }
   #banner .banner-card { width: min(94vw, 460px); }
 }
