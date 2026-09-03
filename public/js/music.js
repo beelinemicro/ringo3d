@@ -4,8 +4,9 @@
 // 1.5 s and 1.5 s + LOOP_SECONDS lands on identical audio at both ends, so
 // any MP3 decoder delay cancels out and the seam is inaudible.
 //
-// Off switch: the ♪ button in the game header (remembered), and the sound
-// mute silences it too.
+// Plays from the first tap on the landing page and carries on into the
+// game. Off switches: the ♫ buttons on the menu and in the game header
+// (remembered), and the sound mute silences it too.
 
 import { context, isMuted } from './sound.js';
 
@@ -20,7 +21,6 @@ let loading = null;
 let source = null;
 let gain = null;
 let wanted = localStorage.getItem(KEY) !== 'off';
-let inGame = false; // music plays during a game, not on the menu
 
 export function musicEnabled() {
   return wanted;
@@ -45,15 +45,20 @@ async function load(ctx) {
   return loading;
 }
 
-// Start (or resume) the bed if music is wanted, we're in a game, and sound
-// isn't muted. Fades in; repeated calls are harmless.
+// Start (or resume) the bed if music is wanted and sound isn't muted. Call
+// it from a user gesture the first time (browsers insist). Fades in;
+// repeated calls are harmless.
+let starting = false;
 export async function start() {
-  if (!wanted || !inGame || isMuted() || source) return;
+  if (!wanted || isMuted() || source || starting) return;
   const ctx = context();
   if (!ctx) return;
+  // Resume synchronously, inside the gesture, before any awaiting.
+  if (ctx.state === 'suspended') { try { ctx.resume(); } catch { /* needs a gesture */ } }
+  starting = true;
   const buf = await load(ctx);
-  if (!buf || source || !wanted || !inGame || isMuted()) return;
-  if (ctx.state === 'suspended') { try { await ctx.resume(); } catch { /* needs a gesture */ } }
+  starting = false;
+  if (!buf || source || !wanted || isMuted() || ctx.state !== 'running') return;
   gain = ctx.createGain();
   gain.gain.setValueAtTime(0.0001, ctx.currentTime);
   gain.gain.exponentialRampToValueAtTime(LEVEL, ctx.currentTime + 2.5);
@@ -87,18 +92,11 @@ export function isPlaying() {
   return !!source;
 }
 
-// Called when a game screen appears / the menu returns.
-export function enterGame() {
-  inGame = true;
-  start();
-}
+// Any tap or key on the page is a chance to start (the first one is what
+// unlocks audio); once playing these are no-ops.
+['pointerdown', 'keydown'].forEach((ev) => document.addEventListener(ev, () => { start(); }, { passive: true }));
 
-export function leaveGame() {
-  inGame = false;
-  stop();
-}
-
-// Warm the download from the first gesture so the bed is ready at kickoff.
+// Warm the download early so the bed is ready when audio unlocks.
 export function preloadMusic() {
   const ctx = context();
   if (ctx && wanted) load(ctx);

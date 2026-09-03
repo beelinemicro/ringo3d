@@ -964,6 +964,14 @@ body::before {
 .btn-music { font-size: 1.1rem; line-height: 1; }
 .btn-music.off { opacity: 0.45; text-decoration: line-through; }
 
+/* The landing page's copy of the music switch, tucked in the top corner. */
+.menu-music {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 12px);
+  right: 12px;
+  z-index: 2;
+}
+
 .player-chips {
   display: flex;
   gap: 8px;

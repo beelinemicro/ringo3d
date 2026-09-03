@@ -103,7 +103,8 @@ cube: `scripts/make-assets.mjs` + `scripts/showcase.html` (see the header).
   40 Hz gamma binaural bed and a faint 528 Hz tone (both phase-continuous
   across the seam). Played through Web Audio, looping between two points
   that hold identical audio so the seam is sample-accurate in every
-  browser. The ♪ button in the game header turns it off (remembered).
+  browser. Starts on the first tap and carries on into the game; the ♫
+  buttons on the landing page and in the game header turn it off (remembered).
 - `public/js/vendor/three.module.js` — three.js r170, vendored so the
   installed app works offline.
 

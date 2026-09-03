@@ -11,7 +11,7 @@ import { sfx, unlock, setMuted, isMuted } from './sound.js';
 import { burst as confettiBurst, stop as confettiStop } from './confetti.js';
 import { createCube } from './cube.js';
 import { voice, preloadVoices } from './voice.js';
-import { musicEnabled, setMusicEnabled, enterGame as musicEnterGame, leaveGame as musicLeaveGame, start as musicStart, stop as musicStop, preloadMusic } from './music.js';
+import { musicEnabled, setMusicEnabled, start as musicStart, stop as musicStop, preloadMusic } from './music.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -508,7 +508,6 @@ function enterGame() {
   renderAll();
   fitHolo(true);
   cube.resize();
-  musicEnterGame();
 }
 
 $('btn-roll').addEventListener('click', () => {
@@ -790,7 +789,6 @@ $('btn-quit').addEventListener('click', () => { sfx.click(); quitToMenu(); });
 
 function quitToMenu() {
   voice.stopAll();
-  musicLeaveGame();
   send({ type: 'leave' }); // frees a lobby seat for real (vs. a phone blip)
   if (net) { clearInterval(net.keepalive); net.ws.onclose = null; net.ws.close(); net = null; }
   clearSeat(); // leaving on purpose — don't auto-rejoin this game later
@@ -815,18 +813,22 @@ $('btn-mute').addEventListener('click', () => {
   else musicStart();
 });
 
+// The music switch lives on the landing page and in the game header.
 function renderMusicButton() {
   const on = musicEnabled();
-  $('btn-music').classList.toggle('off', !on);
-  $('btn-music').setAttribute('aria-pressed', on ? 'true' : 'false');
-  $('btn-music').title = on ? 'Music: on (tap to turn off)' : 'Music: off (tap to turn on)';
+  document.querySelectorAll('.btn-music').forEach((b) => {
+    b.classList.toggle('off', !on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    b.title = on ? 'Music: on (tap to turn off)' : 'Music: off (tap to turn on)';
+  });
 }
 
-$('btn-music').addEventListener('click', () => {
+document.querySelectorAll('.btn-music').forEach((b) => b.addEventListener('click', () => {
+  unlock();
   sfx.click();
   setMusicEnabled(!musicEnabled());
   renderMusicButton();
-});
+}));
 
 renderMusicButton();
 
