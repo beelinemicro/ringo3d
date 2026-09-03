@@ -26,6 +26,15 @@ let twistOpen = false;
 const twistSel = { axis: 'z', k: 0, dir: 1 };
 let net = null; // { ws, code, myIndex, isHost, keepalive }
 
+// Family tables: rooms whose host opened them to the family. Seeing the list
+// — or opening a table of your own — needs the shared passphrase, kept on
+// this device once entered. Rooms without it stay private and code-only.
+const FAMILY_KEY = 'ringo3dFamilyPass';
+let familyOk = false; // this device has entered the right passphrase
+let familyEnabled = true; // the server has a passphrase configured at all
+let familyTables = [];
+let familyError = ''; // shown under the passphrase field after a bad try
+
 // ---------- screens ----------
 
 const SCREENS = ['screen-menu', 'screen-setup', 'screen-lobby', 'screen-game'];
@@ -163,6 +172,9 @@ function openSetup(m) {
         <label>Your name</label>
         <input type="text" id="online-name" maxlength="14" placeholder="Your name" value="${savedName()}">
       </div>
+      <label class="open-opt" id="open-opt">
+        <input type="checkbox" id="chk-open"> <span>Open table &mdash; family can drop in</span>
+      </label>
       <div class="setup-actions">
         <button class="btn btn-primary" id="btn-create-room">Create a Room</button>
       </div>
@@ -174,7 +186,9 @@ function openSetup(m) {
         <button class="btn" id="btn-join-room">Join Room</button>
         <button class="btn btn-ghost" id="btn-watch-room">👀 Watch</button>
       </div>
-      <p class="hint" id="online-status"></p>`;
+      <p class="hint" id="online-status"></p>
+      <div class="family hidden" id="family-block"></div>`;
+    renderFamily();
     $('btn-create-room').addEventListener('click', () => connectOnline(null));
     $('btn-join-room').addEventListener('click', () =>
       connectOnline($('online-code').value.trim().toUpperCase()));
@@ -186,6 +200,93 @@ function openSetup(m) {
 }
 
 $('btn-setup-back').addEventListener('click', () => { sfx.click(); show('screen-menu'); });
+
+function savedFamilyPass() {
+  return localStorage.getItem(FAMILY_KEY) || '';
+}
+
+// Ask the server to unlock this connection. The reply arrives as a 'family'
+// message on the presence socket.
+function sendFamilyPass(pass) {
+  if (presenceWs?.readyState === WebSocket.OPEN) {
+    presenceWs.send(JSON.stringify({ type: 'family', pass }));
+  }
+}
+
+// The block under the online setup: a passphrase prompt, or the live list.
+function renderFamily() {
+  const box = $('family-block');
+  if (!box) return;
+  const openOpt = $('open-opt');
+  if (!familyEnabled) { // no passphrase configured — the feature is off
+    box.classList.add('hidden');
+    if (openOpt) openOpt.classList.add('hidden');
+    return;
+  }
+  box.classList.remove('hidden');
+  if (openOpt) {
+    openOpt.classList.toggle('locked', !familyOk);
+    const chk = $('chk-open');
+    if (chk) chk.disabled = !familyOk;
+    openOpt.title = familyOk ? '' : 'Unlock family tables below to open a table';
+  }
+  if (!familyOk) {
+    box.innerHTML = `<h3>🏠 Family tables</h3>
+      <p class="hint">Enter the family passphrase to see open tables and to leave your own open.</p>
+      <div class="pass-row">
+        <input type="password" id="family-pass" maxlength="40" placeholder="Family passphrase" autocomplete="current-password">
+        <button class="btn btn-small" id="btn-family-go">Unlock</button>
+      </div>
+      <p class="hint" id="family-status">${familyError}</p>`;
+    const go = () => {
+      const pass = $('family-pass').value.trim();
+      if (!pass) return;
+      sfx.click();
+      familyError = '';
+      $('family-status').textContent = 'Checking…';
+      sendFamilyPass(pass);
+    };
+    $('btn-family-go').addEventListener('click', go);
+    $('family-pass').addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
+    return;
+  }
+  box.innerHTML = '<h3>🏠 Family tables</h3><div id="table-list" class="table-list"></div>';
+  renderTables();
+}
+
+function renderTables() {
+  const list = $('table-list');
+  if (!list) return;
+  list.innerHTML = '';
+  if (!familyTables.length) {
+    const p = document.createElement('p');
+    p.className = 'hint';
+    p.textContent = 'No open tables right now. Create one with “Open table” ticked and the family will see it here.';
+    list.appendChild(p);
+    return;
+  }
+  familyTables.forEach((t) => {
+    const row = document.createElement('div');
+    row.className = 'table-row';
+    const who = t.players.map((p) => p.name + (p.isBot ? ' 🤖' : '') + (p.away ? ' 💤' : '')).join(', ');
+    const full = t.seats === 0;
+    const label = t.started ? 'in play' : (full ? 'full' : `${t.seats} seat${t.seats === 1 ? '' : 's'} free`);
+    row.innerHTML = `<span class="table-who">${who || t.host}</span><span class="table-meta">${label}</span>`;
+    const b = document.createElement('button');
+    b.className = 'btn btn-small';
+    b.type = 'button';
+    if (t.started) {
+      b.textContent = '👀 Watch';
+      b.addEventListener('click', () => watchOnline(t.code));
+    } else {
+      b.textContent = 'Join';
+      b.disabled = full;
+      b.addEventListener('click', () => connectOnline(t.code));
+    }
+    row.appendChild(b);
+    list.appendChild(row);
+  });
+}
 
 // ---------- the cube ----------
 
@@ -991,7 +1092,13 @@ function connectOnline(joinCode) {
   }
   sfx.click();
   onlineStatus('Connecting…');
-  connectGame(joinCode === null ? { type: 'create', name } : { type: 'join', code: joinCode, name });
+  if (joinCode !== null) {
+    connectGame({ type: 'join', code: joinCode, name });
+    return;
+  }
+  // An open table is listed for the family; the server checks the passphrase.
+  const open = familyOk && !!$('chk-open')?.checked;
+  connectGame({ type: 'create', name, open, pass: open ? savedFamilyPass() : undefined });
 }
 
 function watchOnline(code) {
@@ -1504,6 +1611,9 @@ function startPresence() {
   ws.onopen = () => {
     presenceRetry = 5000;
     ws.send(JSON.stringify({ type: 'hello' }));
+    // Re-unlock the family list automatically on this device.
+    const saved = savedFamilyPass();
+    if (saved) ws.send(JSON.stringify({ type: 'family', pass: saved }));
     keepalive = setInterval(() => ws.send(JSON.stringify({ type: 'presence-ping' })), 4 * 60 * 1000);
   };
   ws.onmessage = (ev) => {
@@ -1519,6 +1629,24 @@ function startPresence() {
       renderHallOfFame(msg.top);
     } else if (msg.type === 'fullstats') {
       renderFullStats(msg);
+    } else if (msg.type === 'family') {
+      familyEnabled = msg.enabled !== false;
+      familyOk = !!msg.ok;
+      if (familyOk) {
+        const typed = $('family-pass')?.value.trim();
+        if (typed) localStorage.setItem(FAMILY_KEY, typed);
+        familyError = '';
+      } else {
+        localStorage.removeItem(FAMILY_KEY);
+        familyTables = [];
+        familyError = familyEnabled
+          ? "That's not the family passphrase."
+          : 'Family tables are switched off on this server.';
+      }
+      renderFamily();
+    } else if (msg.type === 'tables') {
+      familyTables = msg.tables || [];
+      renderTables();
     }
   };
   ws.onerror = () => ws.close();

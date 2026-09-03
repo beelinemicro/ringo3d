@@ -27,6 +27,16 @@ const TABLE = process.env.RINGO_TABLE || 'ringo3d';
 const TTL_HOURS = 24;
 const MAX_ROOM_PLAYERS = 5;
 
+// A room is private by default: invisible, reachable only by its 4-letter
+// code. A host who knows the family passphrase may instead open the table,
+// which lists it live on every family member's menu. The passphrase lives in
+// the environment, never in the repo; with none set every room is private.
+const FAMILY_PASS = (process.env.RINGO_FAMILY_PASS || '').trim();
+
+function passOk(entered) {
+  return !!FAMILY_PASS && String(entered || '').trim().toLowerCase() === FAMILY_PASS.toLowerCase();
+}
+
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
   marshallOptions: { removeUndefinedValues: true },
 });
@@ -398,6 +408,52 @@ async function fullStats() {
 
 // Menus refresh live: everyone on the site gets the new standings the
 // moment a game ends.
+// Presence connections that have entered the passphrase.
+async function familyConnIds() {
+  const now = Math.floor(Date.now() / 1000);
+  const ids = [];
+  let key;
+  do {
+    const r = await ddb.send(new ScanCommand({
+      TableName: TABLE,
+      FilterExpression: 'begins_with(pk, :p) AND #ttl > :now AND fam = :t',
+      ExpressionAttributeNames: { '#ttl': 'ttl' },
+      ExpressionAttributeValues: { ':p': 'PRESENCE#', ':now': now, ':t': true },
+      ExclusiveStartKey: key,
+    }));
+    for (const it of r.Items || []) ids.push(it.pk.slice('PRESENCE#'.length));
+    key = r.LastEvaluatedKey;
+  } while (key);
+  return ids;
+}
+
+// What the menu shows: who's at each open table, and whether you can sit down.
+async function openTables() {
+  const rooms = await scanPrefix('ROOM#');
+  return rooms
+    // Don't advertise a table nobody is sitting at: rooms outlive a dropped
+    // connection so people can come back, but a ghost table is a dead end.
+    .filter((r) => r.open && (r.players || []).some((p) => !p.isBot && !p.disconnected))
+    .map((r) => ({
+      code: r.code,
+      host: r.players?.[r.host]?.name || 'Someone',
+      players: (r.players || []).map((p) => ({ name: p.name, isBot: !!p.isBot, away: !!p.disconnected })),
+      seats: Math.max(0, MAX_ROOM_PLAYERS - (r.players || []).length),
+      started: !!r.started,
+    }))
+    // Tables you can join first, then games to watch.
+    .sort((a, b) => (a.started - b.started) || (b.seats - a.seats));
+}
+
+// Only called where the list can actually change (a seat taken or freed, a
+// game starting or ending) — never per move, since each refresh is a scan.
+async function refreshTables(room) {
+  if (!room?.open) return;
+  const [tables, ids] = await Promise.all([openTables(), familyConnIds()]);
+  const msg = { type: 'tables', v: GAME_VERSION, tables };
+  await Promise.all(ids.map((id) => sendTo(id, msg)));
+}
+
 async function broadcastStats() {
   const [top, ids] = await Promise.all([topStats(), presenceConnIds()]);
   const msg = { type: 'stats', v: GAME_VERSION, top };
@@ -431,6 +487,22 @@ async function onMessage(connId, msg, ip) {
     case 'fullstats':
       return sendTo(connId, { type: 'fullstats', v: GAME_VERSION, ...(await fullStats()) });
 
+    // Unlock the family table list with the shared passphrase. Verified
+    // connections receive the live list now and on every change.
+    case 'family': {
+      const ok = passOk(msg.pass);
+      await ddb.send(new UpdateCommand({
+        TableName: TABLE,
+        Key: { pk: `PRESENCE#${connId}` },
+        UpdateExpression: 'SET fam = :f, #ttl = :t',
+        ExpressionAttributeNames: { '#ttl': 'ttl' },
+        ExpressionAttributeValues: { ':f': ok, ':t': presenceTtl() },
+      })).catch(() => {});
+      await sendTo(connId, { type: 'family', v: GAME_VERSION, ok, enabled: !!FAMILY_PASS });
+      if (ok) await sendTo(connId, { type: 'tables', v: GAME_VERSION, tables: await openTables() });
+      return;
+    }
+
     // Keepalive from a presence connection — just refresh its TTL.
     case 'presence-ping': {
       await ddb.send(new UpdateCommand({
@@ -450,6 +522,8 @@ async function onMessage(connId, msg, ip) {
         const room = {
           pk: `ROOM#${code}`,
           code,
+          // An open table needs the passphrase; without it the room is private.
+          open: !!msg.open && passOk(msg.pass),
           rev: 0,
           players: [{ name: cleanName(msg.name), connectionId: connId, disconnected: false, token: crypto.randomUUID() }],
           host: 0,
@@ -461,6 +535,7 @@ async function onMessage(connId, msg, ip) {
         if (await trySaveRoom(room)) {
           await mapConnection(connId, code, 0);
           await broadcastLobby(room);
+          await refreshTables(room);
           return;
         }
       }
@@ -486,6 +561,7 @@ async function onMessage(connId, msg, ip) {
       if (out === false) return sendTo(connId, { type: 'error', message: err });
       await mapConnection(connId, code, seat);
       await broadcastLobby(room);
+      await refreshTables(room);
       return;
     }
 
@@ -571,6 +647,7 @@ async function onMessage(connId, msg, ip) {
         code, you: seat, host: room.host, token,
       });
       await broadcastState(room, { kind: 'rejoined', name });
+      await refreshTables(room);
       if (room.watchers?.length) await broadcastWatchers(room); // re-show the 👀 badge
       return;
     }
@@ -597,7 +674,7 @@ async function onMessage(connId, msg, ip) {
         r.players.push({ name, isBot: true, connectionId: null, disconnected: false, level: cleanLevel(msg.level) });
         return true;
       });
-      if (room && out === true) await broadcastLobby(room);
+      if (room && out === true) { await broadcastLobby(room); await refreshTables(room); }
       return;
     }
 
@@ -629,6 +706,7 @@ async function onMessage(connId, msg, ip) {
         await Promise.all(room.players.map((p, i) =>
           p.connectionId ? mapConnection(p.connectionId, room.code, i) : null));
         await broadcastLobby(room);
+        await refreshTables(room);
       }
       return;
     }
@@ -651,6 +729,7 @@ async function onMessage(connId, msg, ip) {
         await Promise.all(room.players.map((p, i) =>
           p.connectionId ? mapConnection(p.connectionId, room.code, i) : null));
         await broadcastState(room, { kind: 'start' });
+        await refreshTables(room);
         await runBots(conn.code);
       }
       return;
@@ -677,6 +756,7 @@ async function onMessage(connId, msg, ip) {
           p.connectionId ? mapConnection(p.connectionId, room.code, i) : null));
         await broadcastLobby(room);
       }
+      if (room) await refreshTables(room);
       return;
     }
 
@@ -718,7 +798,7 @@ async function onMessage(connId, msg, ip) {
       });
       if (room && out === true) {
         await broadcastState(room, event);
-        if (event.kind === 'win') await recordResult(room);
+        if (event.kind === 'win') { await recordResult(room); await refreshTables(room); }
         else await runBots(conn.code);
       }
       return;
@@ -763,6 +843,7 @@ async function onMessage(connId, msg, ip) {
       if (room && out === true) {
         if (!room.started) await broadcastLobby(room);
         else await broadcastState(room, evt);
+        await refreshTables(room);
       }
       return;
     }
@@ -803,6 +884,7 @@ async function onMessage(connId, msg, ip) {
           });
         }));
         await broadcastState(room, { kind: 'start' });
+        await refreshTables(room);
         await broadcastWatchers(room); // promotions may have emptied the gallery
         await runBots(conn.code);
       }
@@ -880,4 +962,5 @@ async function onDisconnect(connId) {
     await broadcastState(room, { kind: 'left', name });
     await runBots(room.code); // the departed player's turn may pass to a bot
   }
+  await refreshTables(room);
 }

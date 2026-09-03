@@ -22,9 +22,10 @@ same dice, same shout.
 
 Live at **https://ringo3d.beelinemicrosystems.com**: the cube, twists, Pass
 & Play, vs Computer (easy / normal / hard bots that place, steal and twist),
-online family rooms with invite links, spectators who can queue for the next
-game, emoji reactions, the family Hall of Fame and full stats, the
-announcer's voice, and install-to-phone with offline local play.
+online family rooms with invite links, open **family tables** you can wait
+at until someone drops by, spectators who can queue for the next game, emoji
+reactions, the family Hall of Fame and full stats, the announcer's voice,
+and install-to-phone with offline local play.
 
 ## Run it
 
@@ -63,6 +64,25 @@ Same single-table layout as RINGO: `ROOM#<code>`, `CONN#<id>`, `WATCH#<id>`,
 ```bash
 ./scripts/deploy-web.sh      # web client → S3 + CloudFront invalidation
 ./scripts/deploy-lambda.sh   # room server → Lambda (bundles game.js + ai.js)
+```
+
+## Family tables
+
+A room is private by default: invisible, reachable only by its 4-letter code.
+A host who knows the shared **family passphrase** can instead tick "Open
+table", which lists the room live on every family member's menu — name,
+who's there, seats free — so anyone can drop in, or watch once it starts. A
+table nobody is sitting at is delisted rather than advertised as a dead end.
+
+The passphrase never lives in the repo. It comes from `RINGO_FAMILY_PASS`
+on the server and on the Lambda; with none set the feature is off and every
+room is private. Seeing the list, and opening a table, both require it.
+
+```bash
+RINGO_FAMILY_PASS=your-passphrase npm start      # locally
+aws lambda update-function-configuration --region us-east-2 \
+  --function-name ringo3d-ws \
+  --environment 'Variables={RINGO_TABLE=ringo3d,RINGO_FAMILY_PASS=your-passphrase}'
 ```
 
 **When changing the rules**, bump `GAME_VERSION` in `public/js/game.js` and

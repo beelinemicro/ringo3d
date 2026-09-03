@@ -929,6 +929,79 @@ body::before {
 
 .lobby-players .kick:hover { opacity: 1; }
 
+/* ---- Family tables (the passphrase-gated list on the online setup) ---- */
+
+.family {
+  width: min(400px, 92vw);
+  margin-top: 6px;
+  padding: 12px 14px 14px;
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 211, 77, 0.3);
+}
+
+.family h3 {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.family .hint { margin: 6px 0 0; }
+
+.pass-row { display: flex; gap: 8px; margin-top: 8px; }
+
+.pass-row input {
+  flex: 1;
+  min-width: 0;
+  font-family: inherit;
+  font-size: 1rem;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.3);
+  color: #fff;
+}
+
+.pass-row input:focus { outline: none; border-color: var(--gold); }
+
+.table-list { display: flex; flex-direction: column; gap: 8px; }
+
+.table-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.table-who {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table-meta { font-size: 0.82rem; opacity: 0.7; white-space: nowrap; }
+
+/* "Open table" tickbox above Create a Room. */
+.open-opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.open-opt input { width: 18px; height: 18px; accent-color: var(--gold); }
+
+.open-opt.locked { opacity: 0.45; cursor: default; }
+
 /* ============ Game screen ============ */
 
 #screen-game { position: relative; animation: none; } /* the board has its own entrance; a shake must not replay the fade */

@@ -40,6 +40,7 @@ const server = spawn(process.execPath, ['server.js'], {
     RINGO_BOT_DELAY: '25',
     RINGO_USAGE_LOG: USAGE_LOG,
     RINGO_STATS_FILE: STATS_FILE,
+    RINGO_FAMILY_PASS: 'test-pass',
   },
   stdio: ['ignore', 'pipe', 'inherit'],
 });
@@ -373,6 +374,80 @@ try {
     a.close();
     b.close();
     console.log('twists over the wire ✔');
+  }
+
+  // --- family tables: the passphrase gate, and the live open-table list ---
+  {
+    const menu = await client(); // a family member watching the menu
+    menu.sendJ({ type: 'hello' });
+    await menu.waitFor('presence');
+    menu.sendJ({ type: 'family', pass: 'nope' });
+    const bad = await menu.waitFor('family');
+    assert.deepEqual([bad.ok, bad.enabled], [false, true], 'wrong passphrase refused');
+    assert.equal(menu.last('tables'), undefined, 'no list without the passphrase');
+
+    menu.sendJ({ type: 'family', pass: ' Test-Pass ' }); // spacing and case forgiven
+    const good = await menu.waitFor('family', (m) => m.ok === true);
+    assert.equal(good.ok, true, 'right passphrase accepted');
+    const first = await menu.waitFor('tables');
+    assert.deepEqual(first.tables, [], 'no open tables yet');
+
+    // A private room stays invisible.
+    const priv = await client();
+    priv.sendJ({ type: 'create', name: 'Quiet' });
+    await priv.waitFor('lobby');
+    await sleep(150);
+    assert.deepEqual(menu.last('tables').tables, [], 'a private room is never listed');
+
+    // Opening a table needs the passphrase too.
+    const sneaky = await client();
+    sneaky.sendJ({ type: 'create', name: 'Sneaky', open: true, pass: 'nope' });
+    await sneaky.waitFor('lobby');
+    await sleep(150);
+    assert.deepEqual(menu.last('tables').tables, [], 'open:true without the passphrase stays private');
+    sneaky.close();
+
+    // A real open table appears, with who's there and seats left.
+    const host = await client();
+    host.sendJ({ type: 'create', name: 'Steve', open: true, pass: 'test-pass' });
+    const seat = await host.waitFor('lobby');
+    const listed = await menu.waitFor('tables', (m) => m.tables.length === 1);
+    assert.deepEqual(
+      [listed.tables[0].code, listed.tables[0].host, listed.tables[0].seats, listed.tables[0].started],
+      [seat.code, 'Steve', 4, false], 'the open table is listed with seats free');
+
+    // Someone drops in from the list; the seat count follows.
+    const guest = await client();
+    guest.sendJ({ type: 'join', code: seat.code, name: 'Dad' });
+    await host.waitFor('lobby', (m) => m.players.length === 2);
+    const filled = await menu.waitFor('tables', (m) => m.tables[0]?.seats === 3);
+    assert.deepEqual(filled.tables[0].players.map((p) => p.name), ['Steve', 'Dad'], 'the list names who is at the table');
+
+    // Once it starts it becomes a game to watch, not a seat to take.
+    host.sendJ({ type: 'start' });
+    await host.waitFor('state', (m) => m.event?.kind === 'start');
+    const playing = await menu.waitFor('tables', (m) => m.tables[0]?.started === true);
+    assert.equal(playing.tables[0].started, true, 'a table in play is flagged as such');
+
+    // A table everyone has walked away from stops being advertised.
+    host.terminate();
+    guest.terminate();
+    // Poll the newest list: an early empty one is still in this client's log,
+    // so waitFor would match history rather than the state we're after.
+    for (let i = 0; i < 200 && menu.last('tables').tables.length; i++) await sleep(25);
+    assert.deepEqual(menu.last('tables').tables, [], 'a table with nobody at it is delisted');
+
+    // A menu visitor without the passphrase never receives the list at all.
+    const stranger = await client();
+    stranger.sendJ({ type: 'hello' });
+    await stranger.waitFor('presence');
+    await sleep(200);
+    assert.equal(stranger.last('tables'), undefined, 'the list is never pushed to an unverified page');
+
+    stranger.close();
+    priv.close();
+    menu.close();
+    console.log('family tables: passphrase gate + live list ✔');
   }
 
   // --- spectator mode: watch, receive broadcasts, react, leave ---

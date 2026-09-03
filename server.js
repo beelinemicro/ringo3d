@@ -170,6 +170,54 @@ function recordResult(room) {
   broadcastStats();
 }
 
+// ---------- family tables ----------
+//
+// A room is private by default: invisible, reachable only by its 4-letter
+// code. A host who knows the family passphrase may instead open the table,
+// which lists it live on every family member's menu so anyone can drop in.
+// The passphrase lives in the environment, never in the repo; with none set
+// the feature is off and every room is private.
+
+const MAX_ROOM_PLAYERS = 5;
+const FAMILY_PASS = (process.env.RINGO_FAMILY_PASS || '').trim();
+
+function passOk(entered) {
+  return !!FAMILY_PASS && String(entered || '').trim().toLowerCase() === FAMILY_PASS.toLowerCase();
+}
+
+// What the menu shows: who's at each open table, and whether you can sit down.
+function openTables() {
+  const out = [];
+  rooms.forEach((r) => {
+    if (!r.open) return;
+    // Don't advertise a table nobody is sitting at: rooms outlive a dropped
+    // connection so people can come back, but a ghost table is a dead end.
+    if (!r.players.some((p) => !p.isBot && !p.disconnected)) return;
+    out.push({
+      code: r.code,
+      host: r.players[r.host]?.name || 'Someone',
+      players: r.players.map((p) => ({ name: p.name, isBot: !!p.isBot, away: !!p.disconnected })),
+      seats: Math.max(0, MAX_ROOM_PLAYERS - r.players.length),
+      started: !!r.started,
+    });
+  });
+  // Tables you can join first, then games to watch.
+  return out.sort((a, b) => (a.started - b.started) || (b.seats - a.seats));
+}
+
+// Sent only when the list actually changes, so a table in play doesn't
+// re-broadcast on every roll.
+let lastTables = '';
+
+function broadcastTables() {
+  const tables = openTables();
+  const json = JSON.stringify(tables);
+  if (json === lastTables) return;
+  lastTables = json;
+  const msg = { type: 'tables', v: GAME_VERSION, tables };
+  presence.forEach((ws) => { if (ws.family) sendTo(ws, msg); });
+}
+
 // ---------- rooms ----------
 
 const rooms = new Map(); // code -> room
@@ -186,9 +234,10 @@ function makeCode() {
   return code;
 }
 
-function makeRoom() {
+function makeRoom(isOpen = false) {
   const room = {
     code: makeCode(),
+    open: !!isOpen, // listed on the family menu, or code-only
     sockets: [], // parallel to players; null once disconnected
     players: [], // [{ name, disconnected }]
     watchers: [], // spectator sockets (ws.watchName carries their name)
@@ -215,6 +264,7 @@ function broadcastWatchers(room) {
 }
 
 function broadcastLobby(room) {
+  if (room.open) broadcastTables(); // seats filled or freed
   room.sockets.forEach((ws, i) => {
     sendTo(ws, {
       type: 'lobby',
@@ -229,6 +279,7 @@ function broadcastLobby(room) {
 }
 
 function broadcastState(room, event) {
+  if (room.open) broadcastTables(); // started, renamed, someone left
   broadcast(room, { type: 'state', v: GAME_VERSION, state: room.state, event });
 }
 
@@ -347,6 +398,16 @@ function handleMessage(ws, msg) {
     case 'presence-ping': // keepalive only matters for API Gateway
       break;
 
+    // Unlock the family table list with the shared passphrase. Verified
+    // connections receive the live list now and on every change.
+    case 'family': {
+      const ok = passOk(msg.pass);
+      ws.family = ok;
+      sendTo(ws, { type: 'family', v: GAME_VERSION, ok, enabled: !!FAMILY_PASS });
+      if (ok) sendTo(ws, { type: 'tables', v: GAME_VERSION, tables: openTables() });
+      break;
+    }
+
     // The "Full family stats" view, requested over the presence socket.
     case 'fullstats':
       sendTo(ws, { type: 'fullstats', v: GAME_VERSION, ...fullStats() });
@@ -354,12 +415,14 @@ function handleMessage(ws, msg) {
 
     case 'create': {
       if (room) return;
-      const r = makeRoom();
+      // An open table needs the passphrase; without it the room is private.
+      const r = makeRoom(!!msg.open && passOk(msg.pass));
       r.players.push({ name: cleanName(msg.name), token: crypto.randomUUID() });
       r.sockets.push(ws);
       ws.roomCode = r.code;
       ws.playerIdx = 0;
       broadcastLobby(r);
+      if (r.open) broadcastTables();
       break;
     }
 
@@ -474,6 +537,7 @@ function handleMessage(ws, msg) {
       room.sockets.forEach((s, i) => { if (s) s.playerIdx = i; });
       if (room.players.length === 0) {
         rooms.delete(room.code);
+        if (room.open) broadcastTables();
         return;
       }
       if (idx < room.host) room.host -= 1;
@@ -666,6 +730,7 @@ setInterval(() => {
       room.emptySince = Date.now();
     } else if (Date.now() - room.emptySince > 3600_000) {
       rooms.delete(code);
+      if (room.open) broadcastTables();
     }
   });
 }, 10 * 60 * 1000);
