@@ -20,6 +20,7 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, PutCommand, DeleteCommand, UpdateCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { ApiGatewayManagementApiClient, PostToConnectionCommand } from '@aws-sdk/client-apigatewaymanagementapi';
+import { createHash } from 'node:crypto';
 import { GAME_VERSION, newGame, rollDice, applyRoll, applyPlace, applyTwist, canTwist, isLegal, nextPlayer } from './game.js';
 import { chooseCell, chooseSteal, chooseTwist } from './ai.js';
 
@@ -159,14 +160,17 @@ function centralTime(d) {
 
 // One log entry per page visit. No ttl attribute, so unlike rooms these
 // items never expire — this is the permanent usage log.
-async function logVisit(connId, ip) {
+// A visit is a timestamp and nothing else. No address, no identifier: the
+// count is all we ever wanted, and storing nothing about the visitor keeps
+// the app store's data declaration honest and simple.
+async function logVisit(connId) {
   const now = new Date();
   const utc = now.toISOString();
   const central = centralTime(now);
-  console.log(`visit: ${utc}  ${central}  ${ip}`);
+  console.log(`visit: ${utc}  ${central}`);
   await ddb.send(new PutCommand({
     TableName: TABLE,
-    Item: { pk: `LOG#${utc}#${connId.slice(0, 8)}`, utc, central, ip: ip || 'unknown' },
+    Item: { pk: `LOG#${utc}#${connId.slice(0, 8)}`, utc, central },
   }));
 }
 
@@ -370,11 +374,16 @@ async function refreshRooms(room) {
 
 // ---------- abuse limits ----------
 
+// Rate counters are keyed on a hash of the caller's address, so the address
+// itself is never written to the table.
+const IP_SALT = 'ringo3d-rate';
+const ipKey = (ip) => createHash('sha256').update(String(ip || '') + IP_SALT).digest('hex').slice(0, 16);
+
 // Counters in the same table, one per address plus one for everyone, each
 // covering a rolling window. Checked before a room is made, bumped after.
 async function roomCreateBlocked(ip) {
   const now = Date.now();
-  const [mine, all] = await Promise.all([getItem(`RATE#ip#${ip}`), getItem('RATE#all')]);
+  const [mine, all] = await Promise.all([getItem(`RATE#ip#${ipKey(ip)}`), getItem('RATE#all')]);
   const live = (r) => r && now - (r.windowStart || 0) < ROOM_WINDOW_MS;
   if (live(all) && (all.n || 0) >= MAX_ROOMS_PER_WINDOW) {
     return 'The game is busy right now — try again in a minute.';
@@ -387,7 +396,7 @@ async function roomCreateBlocked(ip) {
 
 async function noteRoomCreated(ip) {
   const now = Date.now();
-  await Promise.all([`RATE#ip#${ip}`, 'RATE#all'].map(async (pk) => {
+  await Promise.all([`RATE#ip#${ipKey(ip)}`, 'RATE#all'].map(async (pk) => {
     const cur = await getItem(pk);
     if (cur && now - (cur.windowStart || 0) < ROOM_WINDOW_MS) {
       await ddb.send(new UpdateCommand({
@@ -441,7 +450,7 @@ async function onMessage(connId, msg, ip) {
         TableName: TABLE,
         Item: { pk: `PRESENCE#${connId}`, ttl: presenceTtl() },
       }));
-      await logVisit(connId, ip);
+      await logVisit(connId);
       await broadcastPresence();
       await sendTo(connId, { type: 'rooms', v: GAME_VERSION, rooms: await openRooms() });
       return;

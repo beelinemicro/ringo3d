@@ -11,6 +11,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 import { WebSocketServer } from 'ws';
 import { GAME_VERSION, newGame, rollDice, applyRoll, applyPlace, applyTwist, canTwist, isLegal, nextPlayer } from './public/js/game.js';
 import { chooseCell, chooseSteal, chooseTwist } from './public/js/ai.js';
@@ -66,9 +67,12 @@ function centralTime(d) {
 const USAGE_LOG = process.env.RINGO_USAGE_LOG
   || path.join(path.dirname(fileURLToPath(import.meta.url)), 'usage.log');
 
-function logVisit(ip) {
+// A visit is a timestamp and nothing else. No address, no identifier: the
+// count is all we ever wanted, and storing nothing about the visitor keeps
+// the app store's data declaration honest and simple.
+function logVisit() {
   const now = new Date();
-  const line = `${now.toISOString()}  ${centralTime(now)}  ${ip || 'unknown'}`;
+  const line = `${now.toISOString()}  ${centralTime(now)}`;
   console.log(`visit: ${line}`);
   fs.appendFile(USAGE_LOG, `${line}\n`, (err) => {
     if (err) console.error('usage log:', err);
@@ -102,12 +106,16 @@ const MAX_ROOMS_LISTED = 25; // open rooms sent to each menu
 const EMPTY_LOBBY_MS = 10 * 60_000; // a room nobody ever joined
 const EMPTY_GAME_MS = 60 * 60_000; // a game everyone walked away from
 
-const ipCreates = new Map(); // ip -> { windowStart, n }
+// Keyed on a hash of the address, never the address itself.
+const ipCreates = new Map(); // ipKey -> { windowStart, n }
+
+const IP_SALT = 'ringo3d-rate';
+const ipKey = (ip) => createHash('sha256').update(String(ip || '') + IP_SALT).digest('hex').slice(0, 16);
 
 // Why this address may not open a room right now, or null if it may.
 function roomCreateBlocked(ip) {
   if (rooms.size >= MAX_ROOMS) return 'The game is busy right now — try again in a minute.';
-  const rec = ipCreates.get(ip);
+  const rec = ipCreates.get(ipKey(ip));
   if (rec && Date.now() - rec.windowStart < ROOM_WINDOW_MS && rec.n >= MAX_ROOMS_PER_IP) {
     return "That's a lot of rooms at once — give it a minute and try again.";
   }
@@ -116,8 +124,9 @@ function roomCreateBlocked(ip) {
 
 function noteRoomCreated(ip) {
   const now = Date.now();
-  const rec = ipCreates.get(ip);
-  if (!rec || now - rec.windowStart >= ROOM_WINDOW_MS) ipCreates.set(ip, { windowStart: now, n: 1 });
+  const key = ipKey(ip);
+  const rec = ipCreates.get(key);
+  if (!rec || now - rec.windowStart >= ROOM_WINDOW_MS) ipCreates.set(key, { windowStart: now, n: 1 });
   else rec.n++;
 }
 
@@ -176,12 +185,11 @@ function makeCode() {
   return null;
 }
 
-function makeRoom(isOpen = false, ip = null) {
+function makeRoom(isOpen = false) {
   const code = makeCode();
   if (!code) return null;
   const room = {
     code,
-    ip,
     open: !!isOpen, // listed on the family menu, or code-only
     sockets: [], // parallel to players; null once disconnected
     players: [], // [{ name, disconnected }]
@@ -358,7 +366,7 @@ function handleMessage(ws, msg) {
     // site", records the visit, and pushes the fresh count to everyone.
     case 'hello': {
       presence.add(ws);
-      logVisit(ws.ip);
+      logVisit();
       broadcastPresence();
       sendTo(ws, { type: 'rooms', v: GAME_VERSION, rooms: openRooms() });
       break;
@@ -372,7 +380,7 @@ function handleMessage(ws, msg) {
       if (room) return;
       const blocked = roomCreateBlocked(ws.ip);
       if (blocked) return sendTo(ws, { type: 'error', message: blocked });
-      const r = makeRoom(!!msg.open, ws.ip);
+      const r = makeRoom(!!msg.open);
       if (!r) return sendTo(ws, { type: 'error', message: 'The game is busy right now — try again in a minute.' });
       if (r.open) r.title = cleanTitle(msg.title); // named at creation only
       noteRoomCreated(ws.ip);
