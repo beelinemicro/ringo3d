@@ -58,7 +58,9 @@ Same shape as RINGO's, with its own resources (tagged `project=ringo3d`):
   alarm `ringo3d-ws-errors` emails via the shared SNS topic `ringo-alerts`.
 
 Same single-table layout as RINGO: `ROOM#<code>`, `CONN#<id>`, `WATCH#<id>`,
-`PRESENCE#<id>` and `LOG#<utc>#<id>`.
+`PRESENCE#<id>` and `LOG#<utc>#<id>`. A visit row is a timestamp and nothing
+else: no address, no identifier. Rate-limit counters key on a salted hash of
+the caller's address, so the address itself is never written down either.
 
 ```bash
 ./scripts/deploy-web.sh      # web client → S3 + CloudFront invalidation
@@ -85,7 +87,7 @@ end, and at most 25 are broadcast.
 There is deliberately no leaderboard and no chat. Names are typed per game,
 sanitized to 14 characters and never stored, as are room names (24
 characters); reactions are a fixed list of six emoji. Nothing a player types
-outlives the room.
+outlives the room, and nothing recorded identifies a visitor.
 
 ## Getting back into a game
 
