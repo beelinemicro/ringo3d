@@ -31,7 +31,24 @@ const SCREENS = ['screen-menu', 'screen-setup', 'screen-lobby', 'screen-game'];
 
 function show(id) {
   SCREENS.forEach((s) => $(s).classList.toggle('hidden', s !== id));
+  if (id === 'screen-menu') fitMenu();
 }
+
+// The menu keeps its roomy spacing unless it would overflow the viewport —
+// then it compacts one notch at a time until it fits (see style.css).
+function fitMenu() {
+  const menu = $('screen-menu');
+  if (menu.classList.contains('hidden')) return;
+  const doc = document.documentElement;
+  menu.classList.remove('tight', 'tighter');
+  if (doc.scrollHeight <= innerHeight) return;
+  menu.classList.add('tight');
+  if (doc.scrollHeight <= innerHeight) return;
+  menu.classList.add('tighter');
+}
+
+window.addEventListener('resize', fitMenu);
+if (document.fonts?.ready) document.fonts.ready.then(fitMenu);
 
 // ---------- menu ----------
 
@@ -1327,6 +1344,7 @@ function spawnReaction(emoji, by) {
 function renderHallOfFame(top) {
   if (!top || top.length === 0) {
     $('hof').classList.add('hidden');
+    fitMenu();
     return;
   }
   const medals = ['🥇', '🥈', '🥉'];
@@ -1341,6 +1359,7 @@ function renderHallOfFame(top) {
     list.appendChild(li);
   });
   $('hof').classList.remove('hidden');
+  fitMenu();
 }
 
 function renderFullStats(msg) {
@@ -1449,6 +1468,7 @@ function startPresence() {
         ? 'Just you here right now'
         : `${msg.count} people here now`;
       $('presence').classList.remove('hidden');
+      fitMenu();
     } else if (msg.type === 'stats') {
       renderHallOfFame(msg.top);
     } else if (msg.type === 'fullstats') {
@@ -1485,6 +1505,7 @@ function showInstallButton() {
   if (isStandalone()) return;
   $('install-label').textContent = isMobile() ? 'Add to Home Screen' : 'Install RINGO 3D';
   $('btn-install').classList.remove('hidden');
+  fitMenu();
 }
 
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -1496,7 +1517,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
 window.addEventListener('appinstalled', () => {
   installPrompt = null;
   $('install-label').textContent = 'Installed!';
-  setTimeout(() => $('btn-install').classList.add('hidden'), 2500);
+  setTimeout(() => { $('btn-install').classList.add('hidden'); fitMenu(); }, 2500);
 });
 
 const ICON_SHARE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M8 7l4-4 4 4"/><path d="M5 11v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8"/></svg>';

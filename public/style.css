@@ -1769,29 +1769,39 @@ body::before {
     padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
   }
 
-  /* Every screen fits one phone screen — no scrolling to find things. */
-  .screen { gap: 8px; }
-  .hero { margin-top: 0; }
-  .logo { padding: 4px 0; margin-bottom: 0; }
-  .logo-ring { --rw: 42px; margin: 0 -5px; }
-  .title { font-size: clamp(2.9rem, 12.5vw, 4rem); }
-  .tagline { font-size: 0.95rem; margin: 6px 0 0; }
-  .presence { margin: 0; font-size: 0.85rem; }
-  .menu-modes { gap: 8px; }
-  .mode-card { padding: 9px 14px; }
-  .mode-icon { width: 38px; height: 38px; }
-  .mode-icon svg { width: 22px; height: 22px; }
-  .mode-name { font-size: 1.05rem; }
-  .mode-sub { font-size: 0.8rem; }
-  .menu-links { gap: 8px; margin-top: 0; }
-  .menu-links .btn { padding: 9px 16px; font-size: 0.95rem; }
-  .hof { margin-top: 2px; padding: 8px 12px 10px; width: min(400px, 92vw); }
-  .hof h3 { margin-bottom: 6px; font-size: 0.85rem; }
-  .hof ol { flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 4px 10px; font-size: 0.82rem; }
-  .hof li:first-child { font-size: 0.9rem; }
-  .hof li:nth-child(n+4) { display: none; } /* the podium only — the full list is a tap away */
-  .hof-more { margin-top: 4px; font-size: 0.82rem; }
-  .credit { margin-top: 4px; font-size: 0.8rem; }
+  /* Every screen fits one phone screen — no scrolling to find things. The
+     menu keeps its roomy spacing; main.js adds .tight (and .tighter) only
+     when the menu would actually overflow the viewport — a short Safari
+     window with the install button, presence and Hall of Fame all showing. */
+  .hero { margin-top: 0.5vh; }
+  .credit { margin-top: 14px; }
+  #screen-menu.tight { gap: 8px; }
+  #screen-menu.tight .hero { margin-top: 0; }
+  #screen-menu.tight .logo { padding: 4px 0; margin-bottom: 0; }
+  #screen-menu.tight .logo-ring { --rw: 34px; margin: 0 -4px; }
+  #screen-menu.tight .title { font-size: clamp(2.6rem, 11vw, 4rem); }
+  #screen-menu.tight .tagline { font-size: 0.88rem; margin: 5px 0 0; }
+  #screen-menu.tight .presence { margin: 0; font-size: 0.85rem; }
+  #screen-menu.tight .menu-modes { gap: 8px; }
+  #screen-menu.tight .mode-card { padding: 7px 12px; }
+  #screen-menu.tight .mode-icon { width: 34px; height: 34px; }
+  #screen-menu.tight .mode-icon svg { width: 20px; height: 20px; }
+  #screen-menu.tight .mode-name { font-size: 1.05rem; }
+  #screen-menu.tight .mode-sub { font-size: 0.8rem; }
+  #screen-menu.tight .menu-links { gap: 8px; margin-top: 0; }
+  #screen-menu.tight .menu-links .btn { padding: 9px 16px; font-size: 0.95rem; }
+  #screen-menu.tight .hof { margin-top: 2px; padding: 6px 10px 8px; width: min(400px, 92vw); }
+  #screen-menu.tight .hof h3 { margin-bottom: 4px; font-size: 0.85rem; }
+  #screen-menu.tight .hof ol { flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 4px 10px; font-size: 0.82rem; }
+  #screen-menu.tight .hof li:first-child { font-size: 0.9rem; }
+  #screen-menu.tight .hof li:nth-child(n+4) { display: none; } /* the podium only — the full list is a tap away */
+  #screen-menu.tight .hof-more { margin-top: 4px; font-size: 0.82rem; }
+  #screen-menu.tight .credit { margin-top: 4px; font-size: 0.8rem; }
+  /* Still too tall (a small iPhone in Safari): menu essentials only. */
+  #screen-menu.tighter .tagline, #screen-menu.tighter .presence, #screen-menu.tighter .mode-sub { display: none; }
+  #screen-menu.tighter .hof li:nth-child(n+2), #screen-menu.tighter .hof h3 { display: none; }
+  #screen-menu.tighter .logo-ring { --rw: 30px; margin: 0 -3px; }
+  #screen-menu.tighter .title { font-size: 2.4rem; }
 
   /* Game: Menu / mute on one row, compact player chips below. */
   #screen-game { gap: 8px; }
@@ -1864,22 +1874,8 @@ body::before {
   .amb { display: none; }
 }
 
-@media (max-width: 640px) and (max-height: 700px) {
-  .logo-ring { --rw: 34px; margin: 0 -4px; }
-  .title { font-size: 2.6rem; }
-  .tagline { font-size: 0.88rem; }
-  .mode-card { padding: 7px 12px; }
-  .mode-icon { width: 34px; height: 34px; }
-  .hof { padding: 6px 10px 8px; }
-  .hof h3 { margin-bottom: 4px; }
-}
-
-/* Very short (a small iPhone in Safari with its toolbars): menu essentials only. */
+/* Very short (a small iPhone in Safari with its toolbars): the cube may go smaller. */
 @media (max-width: 640px) and (max-height: 600px) {
-  .tagline, .presence, .mode-sub { display: none; }
-  .hof li:nth-child(n+2) { display: none; }
-  .hof h3 { display: none; }
-  .mode-card { padding: 8px 12px; }
   .holo { height: max(190px, min(560px, 122vw, calc(100svh - var(--rest, 9999px) - var(--slack, 12px)))); }
 }
 
