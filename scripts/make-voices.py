@@ -14,7 +14,7 @@ import json, os, subprocess, sys, time, urllib.request, urllib.error
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "public", "audio")
 URL = "https://api.elevenlabs.io/v1/text-to-speech/{vid}?output_format=mp3_44100_96"
 MODEL = "eleven_flash_v2_5"
-VOICE = os.environ.get("RINGO_VOICE_ID", "M5E055lOUxMi0kJpGyE9")
+VOICE = os.environ.get("RINGO_VOICE_ID", "dHd5gvgSOzSfduK4CvEg")
 
 def ssm(name):
     return subprocess.check_output(
