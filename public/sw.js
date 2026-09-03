@@ -6,7 +6,7 @@
 // the last version you played. Successful fetches refresh the cache as
 // you go.
 
-const CACHE = 'ringo3d-v1';
+const CACHE = 'ringo3d-v2';
 
 const CORE = [
   '/',
@@ -29,6 +29,7 @@ const CORE = [
   '/audio/double-wild.mp3',
   '/audio/triple-wild.mp3',
   '/audio/twist.mp3',
+  '/audio/party.mp3',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
 ];
