@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.beelinemicrosystems.ringo3d",
+        "sha256_cert_fingerprints": ["47:9E:F8:9D:B4:15:F0:A4:3C:3F:B9:2C:61:17:B9:C3:41:06:05:A2:6E:9E:BB:8A:FC:13:0E:C2:F4:21:0F:64"]
+      }
+    }]

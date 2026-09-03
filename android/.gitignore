@@ -1,0 +1,17 @@
+# The upload signing key and its password never go in the repo.
+android.keystore
+keystore-password.txt
+# Bubblewrap's generated Android project and build output.
+node_modules/
+app/
+gradle/
+gradlew
+gradlew.bat
+build.gradle
+settings.gradle
+gradle.properties
+store_icon.png
+*.aab
+*.apk
+*.idsig
+assetlinks.json

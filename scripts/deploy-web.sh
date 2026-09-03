@@ -11,7 +11,7 @@ WS_URL=wss://o2l49t9p86.execute-api.us-east-2.amazonaws.com/prod
 BUILD=build/web
 rm -rf "$BUILD"
 mkdir -p "$BUILD"
-cp -r public/* "$BUILD/"
+cp -r public/. "$BUILD/"   # public/. so .well-known/ comes along
 
 # Production config: the API Gateway WebSocket endpoint for online play.
 cat > "$BUILD/js/config.js" <<EOF

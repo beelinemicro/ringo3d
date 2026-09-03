@@ -1,0 +1,49 @@
+{
+  "packageId": "com.beelinemicrosystems.ringo3d",
+  "host": "ringo3d.beelinemicrosystems.com",
+  "name": "RINGO 3D",
+  "launcherName": "RINGO 3D",
+  "display": "standalone",
+  "themeColor": "#145238",
+  "themeColorDark": "#145238",
+  "navigationColor": "#0D3D27",
+  "navigationColorDark": "#0D3D27",
+  "navigationDividerColor": "#0D3D27",
+  "navigationDividerColorDark": "#0D3D27",
+  "backgroundColor": "#0D3D27",
+  "enableNotifications": false,
+  "startUrl": "/",
+  "iconUrl": "https://ringo3d.beelinemicrosystems.com/icons/icon-512.png",
+  "maskableIconUrl": "https://ringo3d.beelinemicrosystems.com/icons/icon-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "ringo3d"
+  },
+  "appVersionName": "1.0.0",
+  "appVersionCode": 2,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://ringo3d.beelinemicrosystems.com/manifest.json",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://ringo3d.beelinemicrosystems.com/",
+  "minSdkVersion": 23,
+  "orientation": "portrait",
+  "fingerprints": [
+    {
+      "name": "upload key",
+      "value": "47:9E:F8:9D:B4:15:F0:A4:3C:3F:B9:2C:61:17:B9:C3:41:06:05:A2:6E:9E:BB:8A:FC:13:0E:C2:F4:21:0F:64"
+    }
+  ],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "displayOverride": [],
+  "appVersion": "1.0.0"
+}
