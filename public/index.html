@@ -138,7 +138,10 @@
         <button class="btn btn-small btn-ghost" id="btn-quit">&larr; Menu</button>
         <div id="player-chips" class="player-chips"></div>
         <span id="watch-count" class="watch-count hidden" title="People watching">👀 0</span>
-        <button class="btn btn-small btn-ghost" id="btn-mute" title="Toggle sound">🔊</button>
+        <div class="sound-btns">
+          <button class="btn btn-small btn-ghost btn-music" id="btn-music" title="Music on/off" aria-label="Music on/off" aria-pressed="true">&#9835;</button>
+          <button class="btn btn-small btn-ghost" id="btn-mute" title="Toggle sound">🔊</button>
+        </div>
       </header>
 
       <div class="table">
@@ -297,9 +300,10 @@
           <li>On your turn, <strong>roll</strong> three dice &mdash; a letter, a number and a layer color &mdash; and place a ring of your color in that space of the cube. Each die also has a <strong>&#9733; wild</strong> face: pick that part yourself. Three wilds? Anywhere at all.</li>
           <li>A <strong>wild</strong> can also <strong>replace an opponent&rsquo;s ring</strong> on any space it reaches. If your rolled space holds an opponent&rsquo;s ring, choose: <strong>steal the spot</strong> or roll again. Your own ring? Just roll again.</li>
           <li>Or, instead of rolling, <strong>twist the cube</strong>: turn any layer, column or row a quarter turn, Rubik&rsquo;s-style. The rings in that slice swing into new spaces &mdash; and new lines. You can&rsquo;t simply undo the twist just made.</li>
-          <li><strong>Two ways to win</strong>: <strong>five rings in a straight line</strong> anywhere through the cube &mdash; along a row, a column, front-to-back, diagonally across a layer, or corner to corner through the middle &mdash; or <strong>all four corners of any outer face</strong>. Either way, shout <strong>&ldquo;RINGO!&rdquo;</strong></li>
+          <li><strong>Way to win #1: five in a row.</strong> Five rings of your color in <strong>any straight line</strong> through the cube &mdash; along a row, a column, front-to-back, diagonally across a layer, or corner to corner through the middle. Shout <strong>&ldquo;RINGO!&rdquo;</strong></li>
+          <li><strong>Way to win #2: four corners.</strong> Claim <strong>all four corners of any outer face</strong> of the cube &mdash; the front, back, top, bottom, left or right. Corners of an inside layer don&rsquo;t count. That&rsquo;s a RINGO too!</li>
           <li>A twist can finish a line too. Whoever&rsquo;s rings line up wins, <em>even if the other player did the twisting</em>. Finish more than one line at once for a legendary <strong>DOUBLE</strong> or <strong>TRIPLE RINGO</strong>.</li>
-          <li>Drag the cube to spin it. Tap a layer chip to see inside, or the <strong>explode</strong> button to fan the layers out.</li>
+          <li>Drag the cube to spin it. Tap a layer chip to see inside, or the <strong>explode</strong> button to fan the layers out. The <strong>&#9835;</strong> button turns the music off or on.</li>
         </ul>
         <div class="setup-actions">
           <button class="btn btn-primary" id="btn-rules-close">Got it!</button>

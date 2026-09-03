@@ -97,6 +97,13 @@ cube: `scripts/make-assets.mjs` + `scripts/showcase.html` (see the header).
 - `public/js/voice.js` + `public/audio/*.mp3` — the caller (ElevenLabs
   clips generated once by `scripts/make-voices.py`; key from SSM, never in
   the browser).
+- `public/js/music.js` + `public/audio/mind.mp3` — the music bed: a
+  hypnotic instrumental composed by Eleven Music (`scripts/make-music.py`),
+  built into an exact 110-second loop with a 10-second crossfade seam, a
+  40 Hz gamma binaural bed and a faint 528 Hz tone (both phase-continuous
+  across the seam). Played through Web Audio, looping between two points
+  that hold identical audio so the seam is sample-accurate in every
+  browser. The ♪ button in the game header turns it off (remembered).
 - `public/js/vendor/three.module.js` — three.js r170, vendored so the
   installed app works offline.
 

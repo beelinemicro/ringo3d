@@ -17,6 +17,11 @@ export function setMuted(m) {
   muted = m;
 }
 
+// The shared AudioContext (music.js plays its bed through it too).
+export function context() {
+  return ac();
+}
+
 export function isMuted() {
   return muted;
 }

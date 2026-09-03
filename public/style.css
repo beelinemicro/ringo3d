@@ -959,6 +959,11 @@ body::before {
   flex-wrap: wrap;
 }
 
+.sound-btns { display: flex; gap: 6px; }
+
+.btn-music { font-size: 1.1rem; line-height: 1; }
+.btn-music.off { opacity: 0.45; text-decoration: line-through; }
+
 .player-chips {
   display: flex;
   gap: 8px;
@@ -1873,7 +1878,7 @@ body::before {
     gap: 6px;
   }
   #btn-quit { grid-area: menu; }
-  #btn-mute { grid-area: mute; }
+  .sound-btns { grid-area: mute; }
   #watch-count { grid-area: watch; justify-self: end; }
   .player-chips { grid-area: chips; gap: 6px; }
   .chip { padding: 5px 11px 5px 8px; font-size: 0.85rem; gap: 6px; border-width: 1.5px; }

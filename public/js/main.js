@@ -11,6 +11,7 @@ import { sfx, unlock, setMuted, isMuted } from './sound.js';
 import { burst as confettiBurst, stop as confettiStop } from './confetti.js';
 import { createCube } from './cube.js';
 import { voice, preloadVoices } from './voice.js';
+import { musicEnabled, setMusicEnabled, enterGame as musicEnterGame, leaveGame as musicLeaveGame, start as musicStart, stop as musicStop, preloadMusic } from './music.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -52,9 +53,9 @@ if (document.fonts?.ready) document.fonts.ready.then(fitMenu);
 
 // ---------- menu ----------
 
-$('btn-mode-local').addEventListener('click', () => { unlock(); preloadVoices(); sfx.click(); openSetup('local'); });
-$('btn-mode-ai').addEventListener('click', () => { unlock(); preloadVoices(); sfx.click(); openSetup('ai'); });
-$('btn-mode-online').addEventListener('click', () => { unlock(); preloadVoices(); sfx.click(); openSetup('online'); });
+$('btn-mode-local').addEventListener('click', () => { unlock(); preloadVoices(); preloadMusic(); sfx.click(); openSetup('local'); });
+$('btn-mode-ai').addEventListener('click', () => { unlock(); preloadVoices(); preloadMusic(); sfx.click(); openSetup('ai'); });
+$('btn-mode-online').addEventListener('click', () => { unlock(); preloadVoices(); preloadMusic(); sfx.click(); openSetup('online'); });
 $('btn-rules').addEventListener('click', () => { sfx.click(); $('rules-modal').classList.remove('hidden'); });
 $('btn-rules-close').addEventListener('click', () => { sfx.click(); $('rules-modal').classList.add('hidden'); });
 $('btn-story').addEventListener('click', () => { sfx.click(); $('story-modal').classList.remove('hidden'); });
@@ -507,6 +508,7 @@ function enterGame() {
   renderAll();
   fitHolo(true);
   cube.resize();
+  musicEnterGame();
 }
 
 $('btn-roll').addEventListener('click', () => {
@@ -788,6 +790,7 @@ $('btn-quit').addEventListener('click', () => { sfx.click(); quitToMenu(); });
 
 function quitToMenu() {
   voice.stopAll();
+  musicLeaveGame();
   send({ type: 'leave' }); // frees a lobby seat for real (vs. a phone blip)
   if (net) { clearInterval(net.keepalive); net.ws.onclose = null; net.ws.close(); net = null; }
   clearSeat(); // leaving on purpose — don't auto-rejoin this game later
@@ -808,7 +811,24 @@ function quitToMenu() {
 $('btn-mute').addEventListener('click', () => {
   setMuted(!isMuted());
   $('btn-mute').textContent = isMuted() ? '🔇' : '🔊';
+  if (isMuted()) musicStop();
+  else musicStart();
 });
+
+function renderMusicButton() {
+  const on = musicEnabled();
+  $('btn-music').classList.toggle('off', !on);
+  $('btn-music').setAttribute('aria-pressed', on ? 'true' : 'false');
+  $('btn-music').title = on ? 'Music: on (tap to turn off)' : 'Music: off (tap to turn on)';
+}
+
+$('btn-music').addEventListener('click', () => {
+  sfx.click();
+  setMusicEnabled(!musicEnabled());
+  renderMusicButton();
+});
+
+renderMusicButton();
 
 // ---------- online play ----------
 
