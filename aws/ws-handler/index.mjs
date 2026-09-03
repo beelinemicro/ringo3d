@@ -28,14 +28,8 @@ const TTL_HOURS = 24;
 const MAX_ROOM_PLAYERS = 5;
 
 // A room is private by default: invisible, reachable only by its 4-letter
-// code. A host who knows the family passphrase may instead open the table,
-// which lists it live on every family member's menu. The passphrase lives in
-// the environment, never in the repo; with none set every room is private.
-const FAMILY_PASS = (process.env.RINGO_FAMILY_PASS || '').trim();
-
-function passOk(entered) {
-  return !!FAMILY_PASS && String(entered || '').trim().toLowerCase() === FAMILY_PASS.toLowerCase();
-}
+// code. A host can instead open the table, which lists it live on the menu
+// of everyone on the site so anybody can drop in and play.
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
   marshallOptions: { removeUndefinedValues: true },
@@ -288,74 +282,8 @@ async function runBots(code) {
     });
     if (!room || out !== true) return;
     await broadcastState(room, event);
-    if (event.kind === 'win') return recordResult(room);
+    if (event.kind === 'win') return;
   }
-}
-
-// ---------- hall of fame ----------
-
-// One STAT#<name> item per family member (online games only; bots never
-// make the board) plus one H2H#<a>#<b> item per rivalry. No ttl — like
-// the visit log, these are permanent.
-async function recordResult(room) {
-  const winner = room.state.winner;
-  const lines = (room.state.winLines || []).length || 1;
-  const humans = room.state.players
-    .map((p, i) => ({ name: p.name, key: p.name.trim().toLowerCase(), i }))
-    .filter((p) => !room.state.players[p.i].isBot && p.key);
-
-  await Promise.all(humans.map(async (p) => {
-    const won = p.i === winner;
-    const cur = (await getItem(`STAT#${p.key}`)) || {};
-    const streak = won ? (cur.streak || 0) + 1 : 0;
-    await ddb.send(new PutCommand({
-      TableName: TABLE,
-      Item: {
-        pk: `STAT#${p.key}`,
-        name: p.name, // keep the latest capitalization
-        wins: (cur.wins || 0) + (won ? 1 : 0),
-        losses: (cur.losses || 0) + (won ? 0 : 1),
-        streak,
-        bestStreak: Math.max(cur.bestStreak || 0, streak),
-        legendary: (cur.legendary || 0) + (won && lines >= 2 ? 1 : 0),
-      },
-    }));
-  }));
-
-  // A multi-line finish goes in the permanent book of legends — even a
-  // bot's (the family will want to remember the betrayal).
-  if (lines >= 2) {
-    const wp = room.state.players[winner];
-    const now = new Date();
-    await ddb.send(new PutCommand({
-      TableName: TABLE,
-      Item: {
-        pk: `LEGEND#${now.toISOString()}#${wp.name.trim().toLowerCase()}`,
-        name: wp.name,
-        lines,
-        utc: now.toISOString(),
-        central: centralTime(now),
-        code: room.code,
-        isBot: !!wp.isBot,
-      },
-    }));
-  }
-
-  // Head-to-head: the winner logs a result against every other human.
-  const w = humans.find((p) => p.i === winner);
-  if (w) {
-    await Promise.all(humans.filter((p) => p.i !== winner).map((p) => {
-      const [a, b] = [w, p].sort((x, y) => (x.key < y.key ? -1 : 1));
-      return ddb.send(new UpdateCommand({
-        TableName: TABLE,
-        Key: { pk: `H2H#${a.key}#${b.key}` },
-        UpdateExpression: 'SET aName = :an, bName = :bn ADD #wf :one',
-        ExpressionAttributeNames: { '#wf': a === w ? 'aWins' : 'bWins' },
-        ExpressionAttributeValues: { ':an': a.name, ':bn': b.name, ':one': 1 },
-      }));
-    }));
-  }
-  await broadcastStats();
 }
 
 async function scanPrefix(prefix) {
@@ -372,59 +300,6 @@ async function scanPrefix(prefix) {
     key = r.LastEvaluatedKey;
   } while (key);
   return items;
-}
-
-const playerStats = (s) => ({
-  name: s.name,
-  wins: s.wins || 0,
-  losses: s.losses || 0,
-  streak: s.streak || 0,
-  bestStreak: s.bestStreak || 0,
-  legendary: s.legendary || 0,
-});
-
-const byRank = (a, b) => b.wins - a.wins || a.losses - b.losses;
-
-async function topStats() {
-  return (await scanPrefix('STAT#')).map(playerStats).sort(byRank).slice(0, 5);
-}
-
-// Everything for the "Full family stats" view: the whole leaderboard plus
-// every rivalry, biggest first.
-async function fullStats() {
-  const [stats, h2h, legends] = await Promise.all([
-    scanPrefix('STAT#'), scanPrefix('H2H#'), scanPrefix('LEGEND#'),
-  ]);
-  return {
-    players: stats.map(playerStats).sort(byRank),
-    h2h: h2h
-      .map((x) => ({ a: x.aName, b: x.bName, aWins: x.aWins || 0, bWins: x.bWins || 0 }))
-      .sort((p, q) => (q.aWins + q.bWins) - (p.aWins + p.bWins)),
-    legends: legends
-      .map((l) => ({ name: l.name, lines: l.lines, central: l.central, isBot: !!l.isBot }))
-      .sort((a, b) => (a.central < b.central ? 1 : -1)),
-  };
-}
-
-// Menus refresh live: everyone on the site gets the new standings the
-// moment a game ends.
-// Presence connections that have entered the passphrase.
-async function familyConnIds() {
-  const now = Math.floor(Date.now() / 1000);
-  const ids = [];
-  let key;
-  do {
-    const r = await ddb.send(new ScanCommand({
-      TableName: TABLE,
-      FilterExpression: 'begins_with(pk, :p) AND #ttl > :now AND fam = :t',
-      ExpressionAttributeNames: { '#ttl': 'ttl' },
-      ExpressionAttributeValues: { ':p': 'PRESENCE#', ':now': now, ':t': true },
-      ExclusiveStartKey: key,
-    }));
-    for (const it of r.Items || []) ids.push(it.pk.slice('PRESENCE#'.length));
-    key = r.LastEvaluatedKey;
-  } while (key);
-  return ids;
 }
 
 // What the menu shows: who's at each open table, and whether you can sit down.
@@ -449,14 +324,8 @@ async function openTables() {
 // game starting or ending) — never per move, since each refresh is a scan.
 async function refreshTables(room) {
   if (!room?.open) return;
-  const [tables, ids] = await Promise.all([openTables(), familyConnIds()]);
+  const [tables, ids] = await Promise.all([openTables(), presenceConnIds()]);
   const msg = { type: 'tables', v: GAME_VERSION, tables };
-  await Promise.all(ids.map((id) => sendTo(id, msg)));
-}
-
-async function broadcastStats() {
-  const [top, ids] = await Promise.all([topStats(), presenceConnIds()]);
-  const msg = { type: 'stats', v: GAME_VERSION, top };
   await Promise.all(ids.map((id) => sendTo(id, msg)));
 }
 
@@ -479,27 +348,7 @@ async function onMessage(connId, msg, ip) {
       }));
       await logVisit(connId, ip);
       await broadcastPresence();
-      await sendTo(connId, { type: 'stats', v: GAME_VERSION, top: await topStats() });
-      return;
-    }
-
-    // The "Full family stats" view, requested over the presence socket.
-    case 'fullstats':
-      return sendTo(connId, { type: 'fullstats', v: GAME_VERSION, ...(await fullStats()) });
-
-    // Unlock the family table list with the shared passphrase. Verified
-    // connections receive the live list now and on every change.
-    case 'family': {
-      const ok = passOk(msg.pass);
-      await ddb.send(new UpdateCommand({
-        TableName: TABLE,
-        Key: { pk: `PRESENCE#${connId}` },
-        UpdateExpression: 'SET fam = :f, #ttl = :t',
-        ExpressionAttributeNames: { '#ttl': 'ttl' },
-        ExpressionAttributeValues: { ':f': ok, ':t': presenceTtl() },
-      })).catch(() => {});
-      await sendTo(connId, { type: 'family', v: GAME_VERSION, ok, enabled: !!FAMILY_PASS });
-      if (ok) await sendTo(connId, { type: 'tables', v: GAME_VERSION, tables: await openTables() });
+      await sendTo(connId, { type: 'tables', v: GAME_VERSION, tables: await openTables() });
       return;
     }
 
@@ -522,8 +371,7 @@ async function onMessage(connId, msg, ip) {
         const room = {
           pk: `ROOM#${code}`,
           code,
-          // An open table needs the passphrase; without it the room is private.
-          open: !!msg.open && passOk(msg.pass),
+          open: !!msg.open,
           rev: 0,
           players: [{ name: cleanName(msg.name), connectionId: connId, disconnected: false, token: crypto.randomUUID() }],
           host: 0,
@@ -798,7 +646,7 @@ async function onMessage(connId, msg, ip) {
       });
       if (room && out === true) {
         await broadcastState(room, event);
-        if (event.kind === 'win') { await recordResult(room); await refreshTables(room); }
+        if (event.kind === 'win') await refreshTables(room);
         else await runBots(conn.code);
       }
       return;
@@ -821,7 +669,7 @@ async function onMessage(connId, msg, ip) {
       });
       if (room && out === true) {
         await broadcastState(room, event);
-        if (event.kind === 'win') await recordResult(room);
+        if (event.kind === 'win') await refreshTables(room);
         else await runBots(conn.code);
       }
       return;

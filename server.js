@@ -80,110 +80,13 @@ function broadcastPresence() {
   presence.forEach((ws) => sendTo(ws, msg));
 }
 
-// ---------- hall of fame ----------
-
-const STATS_FILE = process.env.RINGO_STATS_FILE
-  || path.join(path.dirname(fileURLToPath(import.meta.url)), 'stats.json');
-
-// { players: { key: {name, wins, losses, streak, bestStreak, legendary} },
-//   h2h:     { 'a|b': {aName, bName, aWins, bWins} },
-//   legends: [ {name, lines, utc, central, code, isBot} ] }
-let stats = { players: {}, h2h: {}, legends: [] };
-try {
-  const raw = JSON.parse(fs.readFileSync(STATS_FILE, 'utf8'));
-  stats = raw.players ? raw : { players: raw, h2h: {} }; // migrate the old flat shape
-  stats.legends = stats.legends || [];
-} catch { /* first run */ }
-
-const byRank = (a, b) => b.wins - a.wins || a.losses - b.losses;
-
-function topStats() {
-  return Object.values(stats.players).sort(byRank).slice(0, 5);
-}
-
-// Everything for the "Full family stats" view: the whole leaderboard plus
-// every rivalry, biggest first.
-function fullStats() {
-  return {
-    players: Object.values(stats.players).sort(byRank),
-    h2h: Object.values(stats.h2h)
-      .map((x) => ({ a: x.aName, b: x.bName, aWins: x.aWins, bWins: x.bWins }))
-      .sort((p, q) => (q.aWins + q.bWins) - (p.aWins + p.bWins)),
-    legends: [...stats.legends].sort((a, b) => (a.utc < b.utc ? 1 : -1)),
-  };
-}
-
-// Menus refresh live: everyone on the site gets the new standings the
-// moment a game ends.
-function broadcastStats() {
-  const msg = { type: 'stats', v: GAME_VERSION, top: topStats() };
-  presence.forEach((ws) => sendTo(ws, msg));
-}
-
-function recordResult(room) {
-  const winner = room.state.winner;
-  const lines = (room.state.winLines || []).length || 1;
-  const humans = room.state.players
-    .map((p, i) => ({ name: p.name, key: p.name.trim().toLowerCase(), i }))
-    .filter((p) => !room.state.players[p.i].isBot && p.key); // bots never make the board
-
-  humans.forEach((p) => {
-    const won = p.i === winner;
-    const s = stats.players[p.key]
-      || (stats.players[p.key] = { name: p.name, wins: 0, losses: 0, streak: 0, bestStreak: 0, legendary: 0 });
-    s.name = p.name; // keep the latest capitalization
-    if (won) s.wins++;
-    else s.losses++;
-    s.streak = won ? (s.streak || 0) + 1 : 0;
-    s.bestStreak = Math.max(s.bestStreak || 0, s.streak);
-    if (won && lines >= 2) s.legendary = (s.legendary || 0) + 1;
-  });
-
-  // A multi-line finish goes in the permanent book of legends — even a
-  // bot's (the family will want to remember the betrayal).
-  if (lines >= 2) {
-    const wp = room.state.players[winner];
-    const now = new Date();
-    stats.legends.push({
-      name: wp.name, lines, utc: now.toISOString(), central: centralTime(now),
-      code: room.code, isBot: !!wp.isBot,
-    });
-  }
-
-  // Head-to-head: the winner logs a result against every other human.
-  const w = humans.find((p) => p.i === winner);
-  if (w) {
-    humans.filter((p) => p.i !== winner).forEach((p) => {
-      const [a, b] = [w, p].sort((x, y) => (x.key < y.key ? -1 : 1));
-      const r = stats.h2h[`${a.key}|${b.key}`]
-        || (stats.h2h[`${a.key}|${b.key}`] = { aName: a.name, bName: b.name, aWins: 0, bWins: 0 });
-      r.aName = a.name;
-      r.bName = b.name;
-      if (a === w) r.aWins++;
-      else r.bWins++;
-    });
-  }
-
-  fs.writeFile(STATS_FILE, JSON.stringify(stats, null, 2), (err) => {
-    if (err) console.error('stats:', err);
-  });
-  broadcastStats();
-}
-
 // ---------- family tables ----------
 //
 // A room is private by default: invisible, reachable only by its 4-letter
-// code. A host who knows the family passphrase may instead open the table,
-// which lists it live on every family member's menu so anyone can drop in.
-// The passphrase lives in the environment, never in the repo; with none set
-// the feature is off and every room is private.
+// code. A host can instead open the table, which lists it live on the menu
+// of everyone on the site so anybody can drop in and play.
 
 const MAX_ROOM_PLAYERS = 5;
-const FAMILY_PASS = (process.env.RINGO_FAMILY_PASS || '').trim();
-
-function passOk(entered) {
-  return !!FAMILY_PASS && String(entered || '').trim().toLowerCase() === FAMILY_PASS.toLowerCase();
-}
 
 // What the menu shows: who's at each open table, and whether you can sit down.
 function openTables() {
@@ -215,7 +118,7 @@ function broadcastTables() {
   if (json === lastTables) return;
   lastTables = json;
   const msg = { type: 'tables', v: GAME_VERSION, tables };
-  presence.forEach((ws) => { if (ws.family) sendTo(ws, msg); });
+  presence.forEach((ws) => sendTo(ws, msg));
 }
 
 // ---------- rooms ----------
@@ -337,7 +240,7 @@ async function runBots(room) {
         event = { kind: result === 'place' ? 'roll' : result, dice, by: bot.name };
       }
       broadcastState(room, event);
-      if (event.kind === 'win') return recordResult(room);
+      if (event.kind === 'win') return;
     }
   } finally {
     room.botsBusy = false;
@@ -391,32 +294,17 @@ function handleMessage(ws, msg) {
       presence.add(ws);
       logVisit(ws.ip);
       broadcastPresence();
-      sendTo(ws, { type: 'stats', v: GAME_VERSION, top: topStats() });
+      sendTo(ws, { type: 'tables', v: GAME_VERSION, tables: openTables() });
       break;
     }
 
     case 'presence-ping': // keepalive only matters for API Gateway
       break;
 
-    // Unlock the family table list with the shared passphrase. Verified
-    // connections receive the live list now and on every change.
-    case 'family': {
-      const ok = passOk(msg.pass);
-      ws.family = ok;
-      sendTo(ws, { type: 'family', v: GAME_VERSION, ok, enabled: !!FAMILY_PASS });
-      if (ok) sendTo(ws, { type: 'tables', v: GAME_VERSION, tables: openTables() });
-      break;
-    }
-
-    // The "Full family stats" view, requested over the presence socket.
-    case 'fullstats':
-      sendTo(ws, { type: 'fullstats', v: GAME_VERSION, ...fullStats() });
-      break;
 
     case 'create': {
       if (room) return;
-      // An open table needs the passphrase; without it the room is private.
-      const r = makeRoom(!!msg.open && passOk(msg.pass));
+      const r = makeRoom(!!msg.open);
       r.players.push({ name: cleanName(msg.name), token: crypto.randomUUID() });
       r.sockets.push(ws);
       ws.roomCode = r.code;
@@ -596,8 +484,7 @@ function handleMessage(ws, msg) {
       const by = room.players[ws.playerIdx].name;
       const { result, stolen } = applyPlace(room.state, cell);
       broadcastState(room, { kind: result === 'next' ? 'place' : result, cell, stolen, by });
-      if (result === 'win') recordResult(room);
-      else runBots(room);
+      if (result !== 'win') runBots(room);
       break;
     }
 
@@ -612,8 +499,7 @@ function handleMessage(ws, msg) {
       const by = room.players[ws.playerIdx].name;
       const { result, winner } = applyTwist(room.state, twist);
       broadcastState(room, { kind: result === 'win' ? 'win' : 'twist', twist, winner, by });
-      if (result === 'win') recordResult(room);
-      else runBots(room);
+      if (result !== 'win') runBots(room);
       break;
     }
 

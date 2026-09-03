@@ -5,7 +5,7 @@
 // way down — and drives it with real WebSocket clients through the whole
 // online protocol: presence, stats, lobby life-cycle, invite-era seat
 // tokens, silent-drop survival, rejoin, ghost pruning, bots and their
-// difficulty levels, reactions, twists, and a full game to a recorded win.
+// difficulty levels, reactions, twists, open tables, and a full game.
 //
 // The Lambda (aws/ws-handler) speaks the identical protocol; this suite is
 // the regression net for both halves' shared behavior.
@@ -23,7 +23,6 @@ const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = 3210;
 const URL = `ws://localhost:${PORT}`;
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'ringo3d-test-'));
-const STATS_FILE = path.join(TMP, 'stats.json');
 const USAGE_LOG = path.join(TMP, 'usage.log');
 
 // Whole-suite watchdog: a hung WebSocket must not hang CI forever.
@@ -39,8 +38,6 @@ const server = spawn(process.execPath, ['server.js'], {
     PORT,
     RINGO_BOT_DELAY: '25',
     RINGO_USAGE_LOG: USAGE_LOG,
-    RINGO_STATS_FILE: STATS_FILE,
-    RINGO_FAMILY_PASS: 'test-pass',
   },
   stdio: ['ignore', 'pipe', 'inherit'],
 });
@@ -52,21 +49,6 @@ function cleanup() {
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-// The server writes stats.json asynchronously after broadcasting a win, so
-// a client can see the result before the file exists (it did, on a slow CI
-// runner). Wait for the file — and for it to hold what we're looking for.
-async function readStats(pred = () => true, ms = 5000) {
-  const t0 = Date.now();
-  for (;;) {
-    try {
-      const data = JSON.parse(fs.readFileSync(STATS_FILE, 'utf8'));
-      if (pred(data)) return data;
-    } catch { /* not written yet, or mid-write */ }
-    if (Date.now() - t0 > ms) throw new Error('timed out waiting for stats.json');
-    await sleep(25);
-  }
-}
 
 // A test client: records every message, with polling helpers to await one.
 function client() {
@@ -102,7 +84,7 @@ try {
     const p1 = await client();
     p1.sendJ({ type: 'hello' });
     await p1.waitFor('presence', (m) => m.count === 1);
-    await p1.waitFor('stats'); // menu standings arrive with the hello
+    await p1.waitFor('tables'); // the open-table list arrives with the hello
     const p2 = await client();
     p2.sendJ({ type: 'hello' });
     await p1.waitFor('presence', (m) => m.count === 2);
@@ -221,12 +203,8 @@ try {
     console.log('ghost pruning + reactions + mid-game rejoin ✔');
   }
 
-  // --- a full game vs a bot, played to a recorded win ---
+  // --- a full game vs a bot, played to a winner ---
   {
-    const menu = await client(); // watches the hall of fame from the menu
-    menu.sendJ({ type: 'hello' });
-    await menu.waitFor('stats');
-
     const host = await client();
     host.sendJ({ type: 'create', name: 'Steve' });
     await host.waitFor('lobby');
@@ -254,24 +232,13 @@ try {
     assert.ok(finished, 'game reached a winner');
     const chipMoves = host.msgs.filter((m) => m.type === 'state' && m.event?.by === 'Chip').length;
     assert.ok(chipMoves > 0, 'bot actually played');
+    assert.ok(finished.state.winLines?.length >= 1, 'the win names its line');
 
-    const data = await readStats((d) => d.players?.steve);
-    const s = data.players.steve;
-    assert.ok(s, 'human result recorded');
-    assert.equal(s.wins + s.losses, 1, 'exactly one game recorded');
-    const won = finished.state.winner === 0;
-    assert.equal(s.streak, won ? 1 : 0, 'current streak tracks the result');
-    assert.equal(s.bestStreak, won ? 1 : 0, 'best streak tracks too');
-    assert.ok(!data.players.chip, 'bots never make the hall of fame');
-    assert.deepEqual(data.h2h, {}, 'no rivalry from a bots-only opposition');
-    await menu.waitFor('stats', (m) => m.top.length === 1);
-
-    menu.close();
     host.close();
-    console.log(`full game vs bot (${finished.state.players[finished.state.winner].name} won) + stats ✔`);
+    console.log(`full game vs bot (${finished.state.players[finished.state.winner].name} won) ✔`);
   }
 
-  // --- head-to-head: two humans, rivalry recorded, fullstats served ---
+  // --- two humans, a watching relative, and a rematch that seats them ---
   {
     const a = await client();
     a.sendJ({ type: 'create', name: 'Steve' });
@@ -315,21 +282,9 @@ try {
     await a.waitFor('watchers', (m) => m.n === 0);
     gw.close();
 
-    const data = await readStats((d) => d.h2h?.['dad|steve']);
-    const riv = data.h2h['dad|steve'];
-    assert.ok(riv, 'rivalry recorded under sorted key');
-    assert.equal(riv.aWins + riv.bWins, 1, 'exactly one head-to-head result');
-
-    const menu = await client();
-    menu.sendJ({ type: 'fullstats' });
-    const full = await menu.waitFor('fullstats');
-    assert.ok(full.players.length >= 2, 'full leaderboard served');
-    assert.equal(full.h2h.length, 1, 'rivalry appears in fullstats');
-    assert.ok(full.players.every((p) => 'streak' in p && 'bestStreak' in p), 'streak fields present');
     a.close();
     b.close();
-    menu.close();
-    console.log('head-to-head + fullstats ✔');
+    console.log('two humans + watcher promoted into the rematch ✔');
   }
 
   // --- twists over the wire: legal at the start of a turn, no instant undo ---
@@ -376,52 +331,35 @@ try {
     console.log('twists over the wire ✔');
   }
 
-  // --- family tables: the passphrase gate, and the live open-table list ---
+  // --- open tables: the live list everyone on the site can see ---
   {
-    const menu = await client(); // a family member watching the menu
+    const menu = await client(); // someone idling on the menu
     menu.sendJ({ type: 'hello' });
-    await menu.waitFor('presence');
-    menu.sendJ({ type: 'family', pass: 'nope' });
-    const bad = await menu.waitFor('family');
-    assert.deepEqual([bad.ok, bad.enabled], [false, true], 'wrong passphrase refused');
-    assert.equal(menu.last('tables'), undefined, 'no list without the passphrase');
-
-    menu.sendJ({ type: 'family', pass: ' Test-Pass ' }); // spacing and case forgiven
-    const good = await menu.waitFor('family', (m) => m.ok === true);
-    assert.equal(good.ok, true, 'right passphrase accepted');
     const first = await menu.waitFor('tables');
-    assert.deepEqual(first.tables, [], 'no open tables yet');
+    assert.deepEqual(first.tables, [], 'the list arrives with the hello, empty at first');
 
-    // A private room stays invisible.
+    // A room created without "open" stays invisible.
     const priv = await client();
     priv.sendJ({ type: 'create', name: 'Quiet' });
     await priv.waitFor('lobby');
     await sleep(150);
     assert.deepEqual(menu.last('tables').tables, [], 'a private room is never listed');
 
-    // Opening a table needs the passphrase too.
-    const sneaky = await client();
-    sneaky.sendJ({ type: 'create', name: 'Sneaky', open: true, pass: 'nope' });
-    await sneaky.waitFor('lobby');
-    await sleep(150);
-    assert.deepEqual(menu.last('tables').tables, [], 'open:true without the passphrase stays private');
-    sneaky.close();
-
-    // A real open table appears, with who's there and seats left.
+    // An open table appears, with who's there and seats left.
     const host = await client();
-    host.sendJ({ type: 'create', name: 'Steve', open: true, pass: 'test-pass' });
+    host.sendJ({ type: 'create', name: 'Steve', open: true });
     const seat = await host.waitFor('lobby');
     const listed = await menu.waitFor('tables', (m) => m.tables.length === 1);
     assert.deepEqual(
       [listed.tables[0].code, listed.tables[0].host, listed.tables[0].seats, listed.tables[0].started],
       [seat.code, 'Steve', 4, false], 'the open table is listed with seats free');
 
-    // Someone drops in from the list; the seat count follows.
+    // A stranger drops in from the list; the seat count follows.
     const guest = await client();
-    guest.sendJ({ type: 'join', code: seat.code, name: 'Dad' });
+    guest.sendJ({ type: 'join', code: seat.code, name: 'Passerby' });
     await host.waitFor('lobby', (m) => m.players.length === 2);
     const filled = await menu.waitFor('tables', (m) => m.tables[0]?.seats === 3);
-    assert.deepEqual(filled.tables[0].players.map((p) => p.name), ['Steve', 'Dad'], 'the list names who is at the table');
+    assert.deepEqual(filled.tables[0].players.map((p) => p.name), ['Steve', 'Passerby'], 'the list names who is at the table');
 
     // Once it starts it becomes a game to watch, not a seat to take.
     host.sendJ({ type: 'start' });
@@ -437,17 +375,9 @@ try {
     for (let i = 0; i < 200 && menu.last('tables').tables.length; i++) await sleep(25);
     assert.deepEqual(menu.last('tables').tables, [], 'a table with nobody at it is delisted');
 
-    // A menu visitor without the passphrase never receives the list at all.
-    const stranger = await client();
-    stranger.sendJ({ type: 'hello' });
-    await stranger.waitFor('presence');
-    await sleep(200);
-    assert.equal(stranger.last('tables'), undefined, 'the list is never pushed to an unverified page');
-
-    stranger.close();
     priv.close();
     menu.close();
-    console.log('family tables: passphrase gate + live list ✔');
+    console.log('open tables: live list for everyone ✔');
   }
 
   // --- spectator mode: watch, receive broadcasts, react, leave ---
