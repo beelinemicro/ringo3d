@@ -79,6 +79,30 @@ There is deliberately no leaderboard and no chat. Names are typed per game,
 sanitized to 14 characters and never stored; reactions are a fixed list of
 six emoji. Nothing a player types outlives the room.
 
+## Abuse limits
+
+The game is open to anyone, so a bot could otherwise hold thousands of
+sockets open and make a room on each — filling the 4-letter code space,
+bloating the open-table broadcast, and costing real money in the cloud.
+
+- **Rooms per address**: 20 per 10 minutes (`RINGO_MAX_ROOMS_PER_IP`). Set
+  well above anything a household behind one router could hit. Limiting per
+  address matters more than a global cap, which on its own would let one
+  attacker lock everybody else out by filling it.
+- **Rooms overall**: a backstop of 400 creations per 10 minutes in the cloud,
+  300 alive at once locally.
+- **Open tables broadcast**: at most 25, however many rooms exist.
+- **Room codes**: allocation gives up rather than spinning when the space is
+  crowded, and answers with a friendly "try again in a minute".
+- **Empty rooms**: one that never started is reclaimed in an hour in the
+  cloud (10 minutes locally); a real game is held longer, since phones drop
+  sockets constantly. Any activity pushes the expiry out again.
+- **Reactions**: one per connection per second, on both halves. In the cloud
+  the conditional write *is* the brake.
+- **API Gateway**: the `prod` stage throttles at 100 requests/second, burst
+  200. AWS Budget `ringo3d-monthly` emails if spend on resources tagged
+  `project=ringo3d` passes $5.
+
 **When changing the rules**, bump `GAME_VERSION` in `public/js/game.js` and
 deploy both halves; open pages that hear a newer number show the "new rules
 — tap to refresh" banner.

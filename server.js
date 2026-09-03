@@ -88,6 +88,39 @@ function broadcastPresence() {
 
 const MAX_ROOM_PLAYERS = 5;
 
+// Abuse limits. The game is open to anyone, so a bot could otherwise hold
+// thousands of sockets open and make a room on each: that fills the 4-letter
+// code space, bloats the open-table broadcast, and costs real money in the
+// cloud. Rate-limiting per address matters more than a global cap, since a
+// global cap alone lets one attacker lock everybody else out by filling it.
+// A whole household shares one public address, so the per-address limit is
+// set well above anything a family could hit while still stopping a bot.
+const MAX_ROOMS = 300; // rooms alive at once, a backstop
+const MAX_ROOMS_PER_IP = Number(process.env.RINGO_MAX_ROOMS_PER_IP || 20);
+const ROOM_WINDOW_MS = 10 * 60_000;
+const MAX_TABLES_LISTED = 25; // open tables sent to each menu
+const EMPTY_LOBBY_MS = 10 * 60_000; // a room nobody ever joined
+const EMPTY_GAME_MS = 60 * 60_000; // a game everyone walked away from
+
+const ipCreates = new Map(); // ip -> { windowStart, n }
+
+// Why this address may not open a room right now, or null if it may.
+function roomCreateBlocked(ip) {
+  if (rooms.size >= MAX_ROOMS) return 'The game is busy right now — try again in a minute.';
+  const rec = ipCreates.get(ip);
+  if (rec && Date.now() - rec.windowStart < ROOM_WINDOW_MS && rec.n >= MAX_ROOMS_PER_IP) {
+    return "That's a lot of rooms at once — give it a minute and try again.";
+  }
+  return null;
+}
+
+function noteRoomCreated(ip) {
+  const now = Date.now();
+  const rec = ipCreates.get(ip);
+  if (!rec || now - rec.windowStart >= ROOM_WINDOW_MS) ipCreates.set(ip, { windowStart: now, n: 1 });
+  else rec.n++;
+}
+
 // What the menu shows: who's at each open table, and whether you can sit down.
 function openTables() {
   const out = [];
@@ -104,8 +137,10 @@ function openTables() {
       started: !!r.started,
     });
   });
-  // Tables you can join first, then games to watch.
-  return out.sort((a, b) => (a.started - b.started) || (b.seats - a.seats));
+  // Tables you can join first, then games to watch — and never more than
+  // fit on a menu, so the broadcast stays small however many rooms exist.
+  return out.sort((a, b) => (a.started - b.started) || (b.seats - a.seats))
+    .slice(0, MAX_TABLES_LISTED);
 }
 
 // Sent only when the list actually changes, so a table in play doesn't
@@ -128,18 +163,23 @@ const rooms = new Map(); // code -> room
 // No ambiguous letters (I/L/O look like 1/0).
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ';
 
+// Null if every code it tried is taken — the caller turns that into a
+// friendly error rather than spinning forever.
 function makeCode() {
-  let code;
-  do {
-    code = Array.from({ length: 4 }, () =>
+  for (let tries = 0; tries < 500; tries++) {
+    const code = Array.from({ length: 4 }, () =>
       CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)]).join('');
-  } while (rooms.has(code));
-  return code;
+    if (!rooms.has(code)) return code;
+  }
+  return null;
 }
 
-function makeRoom(isOpen = false) {
+function makeRoom(isOpen = false, ip = null) {
+  const code = makeCode();
+  if (!code) return null;
   const room = {
-    code: makeCode(),
+    code,
+    ip,
     open: !!isOpen, // listed on the family menu, or code-only
     sockets: [], // parallel to players; null once disconnected
     players: [], // [{ name, disconnected }]
@@ -322,7 +362,11 @@ function handleMessage(ws, msg) {
 
     case 'create': {
       if (room) return;
-      const r = makeRoom(!!msg.open);
+      const blocked = roomCreateBlocked(ws.ip);
+      if (blocked) return sendTo(ws, { type: 'error', message: blocked });
+      const r = makeRoom(!!msg.open, ws.ip);
+      if (!r) return sendTo(ws, { type: 'error', message: 'The game is busy right now — try again in a minute.' });
+      noteRoomCreated(ws.ip);
       r.players.push({ name: cleanName(msg.name), token: crypto.randomUUID() });
       r.sockets.push(ws);
       ws.roomCode = r.code;
@@ -626,21 +670,30 @@ function handleLeave(ws) {
   runBots(room); // the departed player's turn may pass to a bot
 }
 
-// Reclaim rooms where every seat has been empty for an hour — nobody is
-// coming back. (The Lambda version gets this for free from DynamoDB TTL.)
+// Reclaim rooms nobody is coming back to. A room that never even started
+// goes quickly — that's the shape junk rooms take — while a real game in
+// progress is held for an hour, since phones drop sockets all the time.
 setInterval(() => {
+  const now = Date.now();
   rooms.forEach((room, code) => {
     const dead = room.sockets.every((s) => s === null || s === undefined) && room.players.every((p) => p.disconnected);
     if (!dead) {
       room.emptySince = null;
-    } else if (!room.emptySince) {
-      room.emptySince = Date.now();
-    } else if (Date.now() - room.emptySince > 3600_000) {
+      return;
+    }
+    if (!room.emptySince) {
+      room.emptySince = now;
+      return;
+    }
+    if (now - room.emptySince > (room.started ? EMPTY_GAME_MS : EMPTY_LOBBY_MS)) {
       rooms.delete(code);
       if (room.open) broadcastTables();
     }
   });
-}, 10 * 60 * 1000);
+  for (const [ip, rec] of ipCreates) {
+    if (now - rec.windowStart >= ROOM_WINDOW_MS) ipCreates.delete(ip);
+  }
+}, 2 * 60 * 1000);
 
 // Keep connections alive through proxies; drop dead sockets.
 setInterval(() => {

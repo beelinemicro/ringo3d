@@ -488,6 +488,38 @@ try {
     console.log('spectator mode ✔');
   }
 
+  // --- abuse limits: one address can't open rooms without end ---
+  // Last, because it deliberately spends this address's room allowance.
+  {
+    const made = [];
+    let refusal = null;
+    for (let i = 0; i < 30 && !refusal; i++) {
+      const c = await client();
+      c.sendJ({ type: 'create', name: 'Flood' + i });
+      const got = await Promise.race([
+        c.waitFor('lobby').then((m) => ({ lobby: m })),
+        c.waitFor('error').then((m) => ({ error: m })),
+      ]);
+      if (got.error) refusal = got.error;
+      else made.push(c);
+    }
+    assert.ok(refusal, 'a flood of rooms from one address is eventually refused');
+    assert.match(refusal.message, /minute/, 'and told to wait, not just ignored');
+    assert.ok(made.length >= 5, 'but an ordinary run of rooms goes through first');
+
+    // Being refused a room must not break anything else: joining still works.
+    const host = made[0];
+    const code = host.last('lobby').code;
+    const guest = await client();
+    guest.sendJ({ type: 'join', code, name: 'Guest' });
+    const joined = await guest.waitFor('lobby');
+    assert.equal(joined.players.length, 2, 'joining an existing room is unaffected by the limit');
+
+    guest.close();
+    made.forEach((c) => c.close());
+    console.log(`abuse limits: room flood refused after ${made.length} ✔`);
+  }
+
   console.log('All RINGO 3D server tests passed ✔');
   cleanup();
   process.exit(0);

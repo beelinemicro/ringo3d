@@ -25,7 +25,21 @@ import { chooseCell, chooseSteal, chooseTwist } from './ai.js';
 
 const TABLE = process.env.RINGO_TABLE || 'ringo3d';
 const TTL_HOURS = 24;
+const LOBBY_TTL_HOURS = 1; // a room that never started is reclaimed sooner
 const MAX_ROOM_PLAYERS = 5;
+
+// Abuse limits. The game is open to anyone, so a bot could otherwise hold
+// thousands of sockets open and make a room on each: that fills the 4-letter
+// code space, bloats the open-table broadcast, and costs real money here.
+// Rate-limiting per address matters more than a global cap, since a global
+// cap alone lets one attacker lock everybody else out by filling it.
+// A whole household shares one public address, so the per-address limit is
+// set well above anything a family could hit while still stopping a bot.
+const MAX_ROOMS_PER_IP = Number(process.env.RINGO_MAX_ROOMS_PER_IP || 20);
+const MAX_ROOMS_PER_WINDOW = 400; // everyone together, a backstop
+const ROOM_WINDOW_MS = 10 * 60_000;
+const MAX_TABLES_LISTED = 25; // open tables sent to each menu
+const REACT_GAP_MS = 900; // one reaction per connection per second
 
 // A room is private by default: invisible, reachable only by its 4-letter
 // code. A host can instead open the table, which lists it live on the menu
@@ -78,7 +92,10 @@ const getRoom = (code) => getItem(`ROOM#${code}`);
 async function trySaveRoom(room) {
   const prev = room.rev || 0;
   room.rev = prev + 1;
-  room.ttl = ttl();
+  // Junk rooms are made and abandoned before they ever start; real games are
+  // held a full day because phones drop sockets constantly. Any activity in
+  // the room pushes this out again.
+  room.ttl = room.started ? ttl() : Math.floor(Date.now() / 1000) + LOBBY_TTL_HOURS * 3600;
   try {
     await ddb.send(new PutCommand({
       TableName: TABLE,
@@ -328,8 +345,10 @@ async function openTables() {
       seats: Math.max(0, MAX_ROOM_PLAYERS - (r.players || []).length),
       started: !!r.started,
     }))
-    // Tables you can join first, then games to watch.
-    .sort((a, b) => (a.started - b.started) || (b.seats - a.seats));
+    // Tables you can join first, then games to watch — and never more than
+    // fit on a menu, so the broadcast stays small however many rooms exist.
+    .sort((a, b) => (a.started - b.started) || (b.seats - a.seats))
+    .slice(0, MAX_TABLES_LISTED);
 }
 
 // Only called where the list can actually change (a seat taken or freed, a
@@ -339,6 +358,62 @@ async function refreshTables(room) {
   const [tables, ids] = await Promise.all([openTables(), presenceConnIds()]);
   const msg = { type: 'tables', v: GAME_VERSION, tables };
   await Promise.all(ids.map((id) => sendTo(id, msg)));
+}
+
+// ---------- abuse limits ----------
+
+// Counters in the same table, one per address plus one for everyone, each
+// covering a rolling window. Checked before a room is made, bumped after.
+async function roomCreateBlocked(ip) {
+  const now = Date.now();
+  const [mine, all] = await Promise.all([getItem(`RATE#ip#${ip}`), getItem('RATE#all')]);
+  const live = (r) => r && now - (r.windowStart || 0) < ROOM_WINDOW_MS;
+  if (live(all) && (all.n || 0) >= MAX_ROOMS_PER_WINDOW) {
+    return 'The game is busy right now — try again in a minute.';
+  }
+  if (live(mine) && (mine.n || 0) >= MAX_ROOMS_PER_IP) {
+    return "That's a lot of rooms at once — give it a minute and try again.";
+  }
+  return null;
+}
+
+async function noteRoomCreated(ip) {
+  const now = Date.now();
+  await Promise.all([`RATE#ip#${ip}`, 'RATE#all'].map(async (pk) => {
+    const cur = await getItem(pk);
+    if (cur && now - (cur.windowStart || 0) < ROOM_WINDOW_MS) {
+      await ddb.send(new UpdateCommand({
+        TableName: TABLE,
+        Key: { pk },
+        UpdateExpression: 'ADD n :one SET #ttl = :t',
+        ExpressionAttributeNames: { '#ttl': 'ttl' },
+        ExpressionAttributeValues: { ':one': 1, ':t': ttl() },
+      }));
+    } else {
+      await ddb.send(new PutCommand({
+        TableName: TABLE,
+        Item: { pk, windowStart: now, n: 1, ttl: ttl() },
+      }));
+    }
+  })).catch((e) => console.error('rate counter:', e));
+}
+
+// One reaction per connection per second. The conditional write *is* the
+// brake: if it fails, this connection reacted too recently.
+async function reactAllowed(pk) {
+  const now = Date.now();
+  try {
+    await ddb.send(new UpdateCommand({
+      TableName: TABLE,
+      Key: { pk },
+      UpdateExpression: 'SET lastReact = :now',
+      ConditionExpression: 'attribute_exists(pk) AND (attribute_not_exists(lastReact) OR lastReact < :cut)',
+      ExpressionAttributeValues: { ':now': now, ':cut': now - REACT_GAP_MS },
+    }));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // No ambiguous letters (I/L/O look like 1/0).
@@ -378,6 +453,8 @@ async function onMessage(connId, msg, ip) {
     }
 
     case 'create': {
+      const blocked = await roomCreateBlocked(ip);
+      if (blocked) return sendTo(connId, { type: 'error', message: blocked });
       for (let tries = 0; tries < 10; tries++) {
         const code = randomCode();
         const room = {
@@ -393,6 +470,7 @@ async function onMessage(connId, msg, ip) {
         };
         if (await getRoom(code)) continue;
         if (await trySaveRoom(room)) {
+          await noteRoomCreated(ip);
           await mapConnection(connId, code, 0);
           await broadcastLobby(room);
           await refreshTables(room);
@@ -481,6 +559,7 @@ async function onMessage(connId, msg, ip) {
       if (!room?.started) return;
       const by = conn ? room.players[conn.idx]?.name : `${watch.name} 👀`;
       if (!by) return;
+      if (!(await reactAllowed(conn ? `CONN#${connId}` : `WATCH#${connId}`))) return;
       const msg2 = { type: 'react', v: GAME_VERSION, e: msg.e, by };
       await Promise.all(roomAudience(room).map((id) => sendTo(id, msg2)));
       return;
