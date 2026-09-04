@@ -1985,3 +1985,88 @@ body::before {
   .banner-text span { animation-duration: 0.2s; animation-delay: 0s; }
   .screen { animation: none; }
 }
+
+/* ---- first-play tour + nudges (js/hints.js) ---------------------------- */
+.tour {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+}
+.tour.hidden { display: none; }
+/* Only the nudge is on screen: let the game underneath stay playable. */
+.tour.nudging { pointer-events: none; }
+.tour.nudging .tour-spot,
+.tour.nudging .tour-card { display: none; }
+.tour-spot {
+  position: fixed;
+  border-radius: 16px;
+  box-shadow: 0 0 0 9999px rgba(7, 31, 20, 0.74), 0 0 0 3px var(--gold), 0 0 28px rgba(255, 211, 77, 0.55);
+  transition: left 0.3s ease, top 0.3s ease, width 0.3s ease, height 0.3s ease;
+  pointer-events: none;
+}
+.tour-card {
+  position: fixed;
+  background: var(--cream);
+  color: var(--ink);
+  border-radius: var(--radius);
+  padding: 16px 18px 14px;
+  box-shadow: var(--shadow-lg), inset 0 1px 0 #fff;
+  transition: left 0.3s ease, top 0.3s ease;
+}
+.tour-title {
+  margin: 6px 0 4px;
+  font-family: 'Lilita One', 'Fredoka', sans-serif;
+  font-size: 1.35rem;
+  letter-spacing: 0.02em;
+}
+.tour-text {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+.tour-dots { display: flex; gap: 6px; }
+.tour-dots i {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: rgba(59, 42, 26, 0.22);
+}
+.tour-dots i.on { background: var(--felt); }
+.tour-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+}
+.tour-nudge {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: min(420px, calc(100vw - 24px));
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: var(--cream);
+  color: var(--ink);
+  border-radius: 14px;
+  padding: 10px 12px 10px 14px;
+  font-size: 0.95rem;
+  line-height: 1.35;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), 0 0 0 2px var(--gold);
+  pointer-events: auto;
+  animation: nudge-in 0.25s ease-out;
+}
+.tour-nudge.hidden { display: none; }
+.tour-nudge-ok {
+  flex: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  opacity: 0.6;
+  cursor: pointer;
+  padding: 0 2px;
+}
+@keyframes nudge-in { from { opacity: 0; transform: translate(-50%, 6px); } }
+@media (prefers-reduced-motion: reduce) {
+  .tour-spot, .tour-card { transition: none; }
+  .tour-nudge { animation: none; }
+}

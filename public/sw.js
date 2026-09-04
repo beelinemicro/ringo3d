@@ -6,7 +6,7 @@
 // the last version you played. Successful fetches refresh the cache as
 // you go.
 
-const CACHE = 'ringo3d-v4';
+const CACHE = 'ringo3d-v5';
 
 const CORE = [
   '/',
@@ -14,6 +14,7 @@ const CORE = [
   '/style.css',
   '/manifest.json',
   '/js/main.js',
+  '/js/hints.js',
   '/js/game.js',
   '/js/ai.js',
   '/js/cube.js',

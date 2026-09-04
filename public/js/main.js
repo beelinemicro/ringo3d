@@ -7,6 +7,7 @@ import {
   diceLabel, cellLabel, sliceLabel, wildCount,
 } from './game.js';
 import { chooseCell, chooseSteal, chooseTwist } from './ai.js';
+import { startTour, tourActive, nudge, hideNudge } from './hints.js';
 import { sfx, unlock, setMuted, isMuted } from './sound.js';
 import { burst as confettiBurst, stop as confettiStop } from './confetti.js';
 import { createCube } from './cube.js';
@@ -283,7 +284,8 @@ function ensureCube() {
     });
     chips.appendChild(b);
   });
-  $('btn-explode').addEventListener('click', () => {
+  $('btn-tour').addEventListener('click', () => { sfx.click(); startTour({ force: true }); });
+$('btn-explode').addEventListener('click', () => {
     sfx.click();
     cube.setExplode(!cube.explode);
     $('btn-explode').classList.toggle('on', cube.explode);
@@ -413,6 +415,20 @@ function renderAll() {
   renderCube();
   setMessage(defaultMessage());
   fitHolo();
+  firstTimeNudges();
+}
+
+// One-time pointers at the two rolls that stump new players. Each shows
+// once per device and never on top of the tour (see js/hints.js).
+function firstTimeNudges() {
+  if (!state || !myTurn() || tourActive()) return;
+  if (state.phase === 'place' && wildCount(state.dice) > 0) {
+    nudge('wild', '#cube', '★ Wild! Every glowing space is yours to choose — tap one. A wild can even take a rival\u2019s ring.');
+  } else if (state.phase === 'blocked') {
+    nudge('steal', '#actions', 'That space already holds a rival\u2019s ring. Tap it on the cube to steal it — or roll again.');
+  } else {
+    hideNudge();
+  }
 }
 
 function setMessage(text) {
@@ -598,6 +614,8 @@ function enterGame() {
   renderAll();
   fitHolo(true);
   cube.resize();
+  // First game on this device: walk the player round the board.
+  if (mode !== 'watch') setTimeout(() => { if (state && !$('screen-game').classList.contains('hidden')) startTour(); }, 900);
 }
 
 $('btn-roll').addEventListener('click', () => {
@@ -725,6 +743,7 @@ function openTwist() {
   renderCube();
   selectTwist();
   fitHolo();
+  nudge('twist', '#twist-panel', 'Pick Layer, Column or Row, then a slice and a direction. The cube previews the turn before you commit.');
 }
 
 // The panel, the layer chips and the cube all show the same chosen slice:
