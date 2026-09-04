@@ -24,6 +24,10 @@ end_at = game_at + game_len - XF
 total = end_at + END
 b = lambda name, off=0.0: game_at + (beats[name] - beats["intro"]) / 1000 + off
 
+def length(path):
+    return float(subprocess.check_output(["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                                          "-of", "csv=p=0", path]).decode())
+
 # (clip, start seconds)
 cues = [
     ("intro",  0.3),
@@ -36,14 +40,12 @@ cues = [
     ("steal",  b("steal", 0.2)),
     ("twist",  b("twist", 0.4)),
     ("build",  b("twist", 9.5)),
-    ("win",    b("win", -2.0)),
+    # Timed back from the banner, so "…and you shout." ends as it lands.
+    ("win",    b("ringo") - length(os.path.join(WORK, "voice", "win.mp3")) - 0.3),
     ("outro",  end_at + 0.7),
 ]
 # No line may start before the previous one has finished (plus a breath),
 # whatever the recorder's timing did — later lines slide, never overlap.
-def length(path):
-    return float(subprocess.check_output(["ffprobe", "-v", "error", "-show_entries", "format=duration",
-                                          "-of", "csv=p=0", path]).decode())
 GAP = 0.35
 prev_end = 0.0
 spaced = []
