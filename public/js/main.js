@@ -12,7 +12,7 @@ import { sfx, unlock, setMuted, isMuted } from './sound.js';
 import { burst as confettiBurst, stop as confettiStop } from './confetti.js';
 import { createCube } from './cube.js';
 import { voice, preloadVoices } from './voice.js';
-import { musicEnabled, setMusicEnabled, start as musicStart, stop as musicStop, preloadMusic } from './music.js';
+import { musicEnabled, setMusicEnabled, start as musicStart, stop as musicStop, preloadMusic, isPlaying as musicPlaying } from './music.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -62,7 +62,7 @@ $('btn-mode-local').addEventListener('click', () => { unlock(); preloadVoices();
 $('btn-mode-ai').addEventListener('click', () => { unlock(); preloadVoices(); preloadMusic(); sfx.click(); openSetup('ai'); });
 $('btn-mode-online').addEventListener('click', () => { unlock(); preloadVoices(); preloadMusic(); sfx.click(); openSetup('online'); });
 $('btn-rules').addEventListener('click', () => { sfx.click(); $('rules-modal').classList.remove('hidden'); });
-$('btn-rules-close').addEventListener('click', () => { sfx.click(); $('rules-modal').classList.add('hidden'); });
+$('btn-rules-close').addEventListener('click', () => { sfx.click(); $('rules-modal').classList.add('hidden'); $('rules-video').pause(); });
 $('btn-story').addEventListener('click', () => { sfx.click(); $('story-modal').classList.remove('hidden'); });
 $('btn-story-close').addEventListener('click', () => { sfx.click(); $('story-modal').classList.add('hidden'); });
 
@@ -1777,4 +1777,16 @@ startPresence();
     $('online-code').value = code.toUpperCase();
     history.replaceState(null, '', location.pathname);
   }
+}
+
+
+// The demo video has its own narration and score: silence the game's music
+// while it plays and bring it back afterwards, if it was on.
+{
+  const v = $('rules-video');
+  let resume = false;
+  v.addEventListener('play', () => { resume = musicPlaying(); if (resume) musicStop(); });
+  const back = () => { if (resume) { resume = false; musicStart(); } };
+  v.addEventListener('pause', back);
+  v.addEventListener('ended', back);
 }
