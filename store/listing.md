@@ -143,3 +143,45 @@ identifiers, no advertising ID, no analytics library, no crash reporting SDK.
   take a display name. 13+ keeps the first release simple.
 - **News app**: no. **Government app**: no. **Financial features**: none.
 - **Health**: none.
+
+## YouTube (the how-to-play video)
+
+Title (limit 100):
+
+    RINGO 3D – How to Play in 90 Seconds
+
+Description. The first two lines show before "Show more", so they carry the
+links. Chapter timestamps come from scripts/demo/assemble.py's cue table;
+YouTube needs at least three, starting at 0:00, each 10 seconds or longer.
+
+    RINGO 3D is a family board game lifted into a 5×5×5 cube. Here's how to play, in ninety seconds.
+
+    ▶ Play free in your browser: https://ringo3d.beelinemicrosystems.com
+    📱 Get it on Google Play: https://play.google.com/store/apps/details?id=com.beelinemicrosystems.ringo3d
+
+    HOW IT WORKS
+    Roll three dice – a letter, a number and a layer colour – and they point at one space in the cube. Place a ring there. A star is wild: you choose that part yourself. Land on a rival's ring and you can steal it. Or skip the roll and twist a slice of the cube, Rubik's-style, and every ring in it swings somewhere new.
+
+    Five of your rings in any straight line through the cube – or all four corners of a face – wins. Then you shout RINGO!
+
+    Play on one screen with up to five people, against the computer, or online with anyone.
+
+    CHAPTERS
+    0:00 Meet RINGO 3D
+    0:12 The cube and the three dice
+    0:25 Seeing inside the cube
+    0:42 Wilds and stealing
+    0:53 The twist
+    1:10 RINGO! And where to play
+
+    ABOUT
+    RINGO is an original board game invented by Wendelin Leinweber and played around his family's table for years. RINGO 3D lifts it into three dimensions. Free, with no ads, no accounts and no tracking.
+
+    Built by Bee Line Microsystems – https://beelinemicrosystems.com/solutions/ringo-3d/
+
+    #boardgame #familygame #puzzlegame
+
+Tags (comma-separated, in the Tags box): RINGO 3D, board game, family board game, puzzle game, dice game, five in a row, 3D board game, Android game, free game, Rubik's cube, how to play
+
+Upload settings Play requires: Public or Unlisted, embedding allowed, not
+age-restricted, ads off, "not made for kids".
