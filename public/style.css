@@ -630,7 +630,8 @@ body::before {
 
 /* Ghost buttons sit on the dark table by default; on light cards
    (win banner) the white text vanishes — use ink instead. */
-.banner-card .btn-ghost {
+.banner-card .btn-ghost,
+.tour-card .btn-ghost {
   background: rgba(59, 42, 26, 0.08);
   color: var(--ink);
   border-color: rgba(59, 42, 26, 0.15);
