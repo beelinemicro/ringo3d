@@ -69,6 +69,10 @@ const waitMsg = (re, t = 15000) => page.waitForFunction((src) => new RegExp(src,
 const myTurn = () => page.waitForFunction(() => { const b = document.getElementById('btn-roll'); return b && !b.classList.contains('hidden') && !b.disabled && /You:/.test(document.getElementById('message')?.textContent || ''); }, null, { timeout: 20000 });
 
 await page.goto(URL);
+// The screencast starts before the page is at full size and the first few
+// seconds come out scaled with gray padding; let it settle and let
+// assemble.py trim everything before the intro beat.
+await hold(4500);
 beat('intro');
 await hold(3600);
 

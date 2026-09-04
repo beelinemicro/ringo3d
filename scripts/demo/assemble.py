@@ -17,10 +17,12 @@ game_len = float(subprocess.check_output(["ffprobe", "-v", "error", "-show_entri
     "-of", "csv=p=0", os.path.join(WORK, "game.webm")]).decode())
 
 TITLE, END, XF = 3.0, 5.5, 0.5
+lead = beats["intro"] / 1000               # recorder lead-in, cut off (see record.mjs)
+game_len -= lead
 game_at = TITLE - XF                       # where the game segment starts in the final cut
 end_at = game_at + game_len - XF
 total = end_at + END
-b = lambda name, off=0.0: game_at + beats[name] / 1000 + off
+b = lambda name, off=0.0: game_at + (beats[name] - beats["intro"]) / 1000 + off
 
 # (clip, start seconds)
 cues = [
@@ -50,7 +52,7 @@ for path, _ in voice:
 
 f = []
 f.append("[0:v]fps=25,format=yuv420p,setsar=1[t]")
-f.append("[1:v]fps=25,format=yuv420p,setsar=1[g]")
+f.append(f"[1:v]trim=start={lead:.3f},setpts=PTS-STARTPTS,fps=25,format=yuv420p,setsar=1[g]")
 f.append("[2:v]fps=25,format=yuv420p,setsar=1[e]")
 f.append(f"[t][g]xfade=transition=fade:duration={XF}:offset={TITLE - XF}[tg]")
 f.append(f"[tg][e]xfade=transition=fade:duration={XF}:offset={end_at}[v]")
