@@ -6,7 +6,7 @@
 // the last version you played. Successful fetches refresh the cache as
 // you go.
 
-const CACHE = 'ringo3d-v5';
+const CACHE = 'ringo3d-v6';
 
 const CORE = [
   '/',
@@ -49,6 +49,9 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET' || !e.request.url.startsWith(self.location.origin)) return;
+  // The how-to-play video is 16 MB and streamed with range requests — leave
+  // it to the browser's own cache rather than pinning it in ours.
+  if (new URL(e.request.url).pathname.startsWith('/demo/')) return;
   e.respondWith(
     fetch(e.request)
       .then((res) => {
