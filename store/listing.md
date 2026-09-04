@@ -105,8 +105,10 @@ Shorter, if you'd rather:
 - Phone screenshots: `public/screenshots/phone-menu.jpg`, `phone-game.jpg`
   (780x1320). Play wants at least two; four is better. More can be rendered
   with `scripts/make-assets.mjs`.
-- Tablet screenshots are optional; supply `public/screenshots/desktop-game.jpg`
-  (1280x900) if you want the tablet-optimised badge.
+- Tablet screenshots are optional, but a filled slot needs two images:
+  `public/screenshots/desktop-game.jpg` (the cube in play) and
+  `public/screenshots/desktop-layers.jpg` (the fanned-layers view), both
+  1280x900. Use the same pair for the 7-inch and 10-inch slots.
 
 ## Data safety answers
 
