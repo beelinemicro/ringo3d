@@ -27,6 +27,7 @@ import { chooseCell, chooseSteal, chooseTwist } from './ai.js';
 const TABLE = process.env.RINGO_TABLE || 'ringo3d';
 const TTL_HOURS = 24;
 const LOBBY_TTL_HOURS = 1; // a room that never started is reclaimed sooner
+const IDLE_GAME_HOURS = 1; // a started game everyone walked away from
 const MAX_ROOM_PLAYERS = 5;
 
 // Abuse limits. The game is open to anyone, so a bot could otherwise hold
@@ -81,6 +82,17 @@ export const handler = async (event) => {
 
 const ttl = () => Math.floor(Date.now() / 1000) + TTL_HOURS * 3600;
 
+// How long a room is kept alive. A junk room that never started goes quickly,
+// a real game is held a full day so phones can drop and come back — but once
+// every seat is empty it falls back to the idle hour, which is what server.js
+// does with EMPTY_GAME_MS.
+function roomTtl(room) {
+  const now = Math.floor(Date.now() / 1000);
+  if (!room.started) return now + LOBBY_TTL_HOURS * 3600;
+  const anyoneHere = (room.players || []).some((p) => !p.isBot && !p.disconnected);
+  return now + (anyoneHere ? TTL_HOURS : IDLE_GAME_HOURS) * 3600;
+}
+
 async function getItem(pk) {
   const r = await ddb.send(new GetCommand({ TableName: TABLE, Key: { pk } }));
   return r.Item || null;
@@ -93,10 +105,8 @@ const getRoom = (code) => getItem(`ROOM#${code}`);
 async function trySaveRoom(room) {
   const prev = room.rev || 0;
   room.rev = prev + 1;
-  // Junk rooms are made and abandoned before they ever start; real games are
-  // held a full day because phones drop sockets constantly. Any activity in
-  // the room pushes this out again.
-  room.ttl = room.started ? ttl() : Math.floor(Date.now() / 1000) + LOBBY_TTL_HOURS * 3600;
+  // Any activity in the room pushes this out again.
+  room.ttl = roomTtl(room);
   try {
     await ddb.send(new PutCommand({
       TableName: TABLE,
@@ -341,19 +351,84 @@ async function scanPrefix(prefix) {
   return items;
 }
 
+// Which connections are still real. A socket that dies without a $disconnect
+// ever firing — an app killed rather than closed — leaves its player marked
+// present forever, so the CONN# items are the only honest answer to "is
+// anyone actually in here". Keyed on connectionId rather than on the seat
+// number, which shifts when someone leaves a lobby. One extra scan, and this
+// runs only when the room list can change, never per move.
+async function liveConns() {
+  const now = Math.floor(Date.now() / 1000);
+  const set = new Set();
+  for (const c of await scanPrefix('CONN#')) {
+    if (c.ttl && c.ttl <= now) continue; // expired but not yet swept
+    set.add(String(c.pk).slice('CONN#'.length));
+  }
+  return set;
+}
+
+const playerLive = (live, p) => !!p.connectionId && live.has(p.connectionId);
+
+// Flip ghosts to disconnected so a dead room stops being advertised and its
+// expiry drops to the idle hour. Liveness is re-read inside the mutator, not
+// taken from the caller's snapshot, so somebody joining while we work is
+// never mistaken for a ghost.
+async function reapGhosts(code) {
+  try {
+    const room = await getRoom(code);
+    if (!room) return;
+    const suspects = (room.players || []).filter((p) => !p.isBot && !p.disconnected);
+    const dead = new Set();
+    await Promise.all(suspects.map(async (p) => {
+      if (!p.connectionId) { dead.add(p.name); return; }
+      if (!(await getItem(`CONN#${p.connectionId}`))) dead.add(p.connectionId || p.name);
+    }));
+    if (!dead.size) return;
+    await mutateRoom(code, (r) => {
+      let changed = false;
+      (r.players || []).forEach((p, i) => {
+        if (p.isBot || p.disconnected) return;
+        if (!dead.has(p.connectionId || p.name)) return;
+        p.disconnected = true;
+        p.connectionId = null;
+        if (r.state?.players?.[i]) r.state.players[i].disconnected = true;
+        changed = true;
+      });
+      if (!changed) return false;
+      if (r.players[r.host]?.disconnected && r.players.some((p) => !p.disconnected)) {
+        r.host = r.players.findIndex((p) => !p.disconnected);
+      }
+      return true;
+    });
+  } catch { /* best effort — the next refresh tries again */ }
+}
+
 // What the menu shows: each open room's name, who's there, and whether
 // there's a seat free.
 async function openRooms() {
-  const rooms = await scanPrefix('ROOM#');
-  return rooms
-    // Don't advertise a room nobody is sitting in: rooms outlive a dropped
-    // connection so people can come back, but a ghost room is a dead end.
-    .filter((r) => r.open && (r.players || []).some((p) => !p.isBot && !p.disconnected))
+  const now = Math.floor(Date.now() / 1000);
+  const [rooms, live] = await Promise.all([scanPrefix('ROOM#'), liveConns()]);
+  // TTL deletion is best-effort and can lag well past the timestamp, so never
+  // advertise a room that has already expired just because it is still there.
+  const alive = rooms.filter((r) => !(r.ttl && r.ttl <= now));
+  // Don't advertise a room nobody is sitting in: rooms outlive a dropped
+  // connection so people can come back, but a ghost room is a dead end.
+  const sitting = (r) => (r.players || []).some((p) => !p.isBot && !p.disconnected && playerLive(live, p));
+  // Clean up any room still holding a seat no socket backs. Awaited rather
+  // than left floating, since Lambda freezes work that outlives the response.
+  const ghosts = alive.filter((r) => !sitting(r) && (r.players || []).some((p) => !p.isBot && !p.disconnected));
+  if (ghosts.length) await Promise.all(ghosts.map((r) => reapGhosts(r.code)));
+  return alive
+    .filter((r) => r.open && sitting(r))
     .map((r) => ({
       code: r.code,
       title: r.title || '',
       host: r.players?.[r.host]?.name || 'Someone',
-      players: (r.players || []).map((p) => ({ name: p.name, isBot: !!p.isBot, away: !!p.disconnected })),
+      players: (r.players || []).map((p) => ({
+        name: p.name,
+        isBot: !!p.isBot,
+        away: !p.isBot && (!!p.disconnected || !playerLive(live, p)),
+      })),
       seats: Math.max(0, MAX_ROOM_PLAYERS - (r.players || []).length),
       started: !!r.started,
     }))
