@@ -39,8 +39,24 @@ cues = [
     ("win",    b("win", -2.0)),
     ("outro",  end_at + 0.7),
 ]
+# No line may start before the previous one has finished (plus a breath),
+# whatever the recorder's timing did — later lines slide, never overlap.
+def length(path):
+    return float(subprocess.check_output(["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                                          "-of", "csv=p=0", path]).decode())
+GAP = 0.35
+prev_end = 0.0
+spaced = []
+for n, t in sorted(cues, key=lambda c: c[1]):
+    path = os.path.join(WORK, "voice", f"{n}.mp3")
+    start = max(t, prev_end + GAP)
+    if start > t + 0.01:
+        print(f"  ({n} slid {start - t:.2f}s to clear the previous line)")
+    spaced.append((n, start))
+    prev_end = start + length(path)
+cues = spaced
 voice = [(os.path.join(WORK, "voice", f"{n}.mp3"), t) for n, t in cues]
-voice.append((os.path.join(ROOT, "public", "audio", "ringo.mp3"), b("ringo", 0.05)))
+voice.append((os.path.join(ROOT, "public", "audio", "ringo.mp3"), max(b("ringo", 0.05), prev_end + 0.2)))
 music = os.path.join(ROOT, "public", "audio", "mind.mp3")
 
 inputs = ["-loop", "1", "-t", str(TITLE), "-i", os.path.join(WORK, "card-title.png"),

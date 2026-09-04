@@ -89,7 +89,7 @@ await hold(3600);
 // H1: roll → place
 await page.click('#btn-roll'); beat('roll');
 await waitVis('#btn-place');
-await hold(3400);
+await hold(4600); // the "roll" line is 5.6 s from the click; let it finish
 await page.click('#btn-place'); beat('place');
 await hold(2400);
 
