@@ -56,7 +56,14 @@ for n, t in sorted(cues, key=lambda c: c[1]):
     prev_end = start + length(path)
 cues = spaced
 voice = [(os.path.join(WORK, "voice", f"{n}.mp3"), t) for n, t in cues]
-voice.append((os.path.join(ROOT, "public", "audio", "ringo.mp3"), max(b("ringo", 0.05), prev_end + 0.2)))
+# The announcer's RINGO follows "…and you shout." — right after that line
+# ends, or on the banner if that comes later. Anchored on the win line
+# itself, not on whichever line happens to be last.
+win_start = dict(cues)["win"]
+win_end = win_start + length(os.path.join(WORK, "voice", "win.mp3"))
+shout = max(b("ringo", 0.05), win_end + 0.2)
+voice.append((os.path.join(ROOT, "public", "audio", "ringo.mp3"), shout))
+print(f"  RINGO shout at {shout:.2f}s (win line ends {win_end:.2f}s, banner at {b('ringo'):.2f}s)")
 music = os.path.join(ROOT, "public", "audio", "mind.mp3")
 
 inputs = ["-loop", "1", "-t", str(TITLE), "-i", os.path.join(WORK, "card-title.png"),
