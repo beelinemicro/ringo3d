@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Cut the vertical (9:16) how-to for TikTok.
 
+Input is the frame-stepped render from tiktok.mjs / capture.mjs (game.mp4 +
+beats.json with exact frame times).
+
     python3 scripts/demo/tiktok.py WORK_DIR OUT.mp4
 
 WORK_DIR holds game.webm, beats.json, bg.png, cap-*.png, card-end.png and
@@ -16,40 +19,12 @@ import json, os, subprocess, sys
 WORK = sys.argv[1]; OUT = sys.argv[2]
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 meta = json.load(open(os.path.join(WORK, "beats.json")))
-GAME = os.path.join(WORK, "game.webm")
-FPS = 25
-MARK = 8  # height of the beat-marker strip, cropped off before compositing
+GAME = os.path.join(WORK, "game.mp4")   # rendered frame by frame under virtual time (capture.mjs)
+FPS = meta["fps"]
 
 def length(path):
     return float(subprocess.check_output(["ffprobe", "-v", "error", "-show_entries", "format=duration",
                                           "-of", "csv=p=0", path]).decode())
-
-def detect_beats(video, names):
-    """Read the real beat times out of the frames.
-
-    The recorder flashes a magenta strip across the top of the page at each
-    beat. Average that strip down to one pixel per frame and look for it:
-    wall-clock timings drift from video time because the screencast drops
-    frames while the cube warms up.
-    """
-    raw = subprocess.run(
-        ["ffmpeg", "-v", "error", "-i", video,
-         "-vf", f"crop=iw:{MARK}:0:0,scale=1:1:flags=area,format=rgb24",
-         "-f", "rawvideo", "-"],
-        check=True, stdout=subprocess.PIPE).stdout
-    hits = [i for i in range(len(raw) // 3)
-            if raw[3 * i] > 140 and raw[3 * i + 2] > 140 and raw[3 * i + 1] < 95]
-    groups = []
-    for i in hits:
-        if groups and i - groups[-1][-1] <= 4:
-            groups[-1].append(i)
-        else:
-            groups.append([i])
-    times = [g[0] / FPS for g in groups]
-    if len(times) != len(names):
-        raise SystemExit(f"found {len(times)} beat flashes but expected {len(names)}: "
-                         f"{[round(t, 2) for t in times]} vs {names}")
-    return dict(zip(names, times))
 
 FW, FH = 1080, 1920
 GW, GH, GX, GY = 900, 1315, 90, 300      # the game inside the frame
@@ -57,11 +32,7 @@ CAP_Y = 8                                 # caption band (captions are 290 tall;
 END, XF = 4.6, 0.5                        # end card: a beat to read it, then the loop line
 GAP = 0.3
 
-beats = detect_beats(GAME, meta["order"])
-wall = meta["wall"]
-drift = (beats["ringo"] - beats["hook"]) - (wall["ringo"] - wall["hook"]) / 1000
-print(f"  beats read from the frames; hook..ringo runs {drift:+.2f}s vs wall clock")
-
+beats = meta["beats"]                     # exact frame times — the capture is frame-stepped
 lead = beats["hook"]                      # recorder settle + menu, trimmed off
 game_len = length(GAME) - lead
 end_at = game_len - XF
@@ -116,7 +87,7 @@ for p, _ in voice:
 
 f = [
     f"[0:v]scale={FW}:{FH},fps=25,format=yuv420p,setsar=1[bg]",
-    f"[1:v]trim=start={lead:.3f},setpts=PTS-STARTPTS,crop=iw:ih-{MARK}:0:{MARK},"
+    f"[1:v]trim=start={lead:.3f},setpts=PTS-STARTPTS,"
     f"scale={GW}:{GH}:flags=lanczos,fps={FPS},format=yuv420p,setsar=1[g]",
     f"[bg][g]overlay={GX}:{GY}:shortest=0[base0]",
 ]

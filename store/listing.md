@@ -188,7 +188,7 @@ age-restricted, ads off, "not made for kids".
 
 ## TikTok / Reels / Shorts (the vertical cut)
 
-`ringo3d-tiktok-vertical.mp4` — 1080x1920, 60s, captions burned in because
+`ringo3d-tiktok-vertical.mp4` — 1080x1920, 52s, captions burned in because
 most of TikTok watches on mute. One sentence straddles the loop point: it
 closes on "So, it is our great honor to be..." and the auto-loop completes
 it with the opening "Introducing you to RINGO 3D, where the object is five
