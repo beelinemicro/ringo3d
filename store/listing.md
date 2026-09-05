@@ -188,8 +188,10 @@ age-restricted, ads off, "not made for kids".
 
 ## TikTok / Reels / Shorts (the vertical cut)
 
-`ringo3d-tiktok-vertical.mp4` — 1080x1920, 61s, captions burned in because
-most of TikTok watches on mute. Rebuild with:
+`ringo3d-tiktok-vertical.mp4` — 1080x1920, 63s, captions burned in because
+most of TikTok watches on mute. Opens with one sentence of context over the
+fanning cube and closes with a line that hands off to the opening, so the
+auto-loop reads as continuous. Rebuild with:
 
     PORT=8081 node server.js &
     python3 scripts/demo/narration.py build/tiktok/voice --tiktok

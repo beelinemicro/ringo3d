@@ -23,7 +23,7 @@ KEY = os.environ.get("ELEVENLABS_API_KEY") or ssm("/storymaker/elevenlabs-api-ke
 # Punchier lines for the vertical cut: TikTok rewards speed, and most of the
 # frame's talking is done by the burned-in captions.
 TIKTOK = [
-    ("hook",   "Five in a row. Through a cube."),
+    ("hook",   "Introducing RINGO 3D, where the object is five in a row, through a cube."),
     ("roll",   "Three dice: a letter, a number, a colour. They point at one space."),
     ("place",  "Place your ring."),
     ("wild",   "A star is wild. Anywhere you like."),
@@ -31,6 +31,8 @@ TIKTOK = [
     ("twist",  "Or twist the cube, and swing a whole line into place."),
     ("win",    "Five in a row, and you shout."),
     ("outro",  "RINGO 3D. Free, on Android and the web."),
+    # Spoken over the end card. TikTok loops, so this hands off to the hook.
+    ("loop",   "So if you're looking for an intriguing, fun game that challenges your mind, it's absolutely worth a look."),
 ]
 
 # Order matters only for reading; timing is decided by the recorder's beat log.

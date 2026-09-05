@@ -53,8 +53,8 @@ def detect_beats(video, names):
 
 FW, FH = 1080, 1920
 GW, GH, GX, GY = 900, 1315, 90, 300      # the game inside the frame
-CAP_Y = 30                                # caption band
-END, XF = 5.0, 0.5
+CAP_Y = 8                                 # caption band (captions are 290 tall; game starts at 300)
+END, XF = 6.8, 0.5                        # end card long enough for the loop line
 GAP = 0.3
 
 beats = detect_beats(GAME, meta["order"])
@@ -76,7 +76,8 @@ cues = [
     ("steal", b("steal", 0.15)),
     ("twist", b("twist", 0.35)),
     ("win",   b("ringo") - length(os.path.join(WORK, "voice", "win.mp3")) - 0.3),
-    ("outro", end_at + 0.6),
+    ("outro", b("ringo", 1.3)),           # over the confetti, after the shout
+    ("loop",  end_at + 0.5),              # over the end card; hands off to the hook
 ]
 
 # No line may start before the previous one has finished.

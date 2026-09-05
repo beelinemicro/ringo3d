@@ -105,11 +105,11 @@ if (!CARDS_ONLY) {
   // the game does, and the reason to keep watching.
   await beat('hook');
   await page.click('#btn-explode');
-  await hold(2600);
+  await hold(3400); // the introducing line runs ~4.5 s; fan for most of it
   await page.click('#btn-explode');
-  await hold(700);
+  await hold(800);
   await page.click('#btn-view');
-  await hold(600);
+  await hold(700);
 
   await page.click('#btn-roll'); await beat('roll');
   await waitVis('#btn-place');
@@ -154,7 +154,7 @@ if (!CARDS_ONLY) {
   await waitVis('#btn-place'); await hold(1200);
   await page.click('#btn-place');
   await waitVis('#banner', 8000); await beat('ringo');
-  await hold(3800);
+  await hold(5600); // the close is spoken over the confetti, not a static card
   await beat('end');
   await hold(700); // let the last marker actually reach the file
 
@@ -193,25 +193,26 @@ await cp.waitForTimeout(900);
 await cp.screenshot({ path: `${OUT}/bg.png` });
 
 // captions — transparent PNGs so ffmpeg can drop them on any frame
+// Each line is [text, size]: xl / l / m / s. Gold marks the key word.
 const CAPS = {
-  hook:  ['FIVE IN A ROW', 'THROUGH A CUBE'],
-  roll:  ['ROLL THREE DICE'],
-  place: ['PLACE YOUR RING'],
-  wild:  ['★ IS WILD', 'GO ANYWHERE'],
-  steal: ['LAND ON A RIVAL?', 'STEAL IT'],
-  twist: ['OR TWIST THE CUBE'],
-  win:   ['FIVE IN A ROW WINS'],
+  hook:  [['INTRODUCING', 's'], ['RINGO <b>3D</b>', 'xl'], ['FIVE IN A ROW THROUGH A CUBE', 's']],
+  roll:  [['ROLL THREE DICE', 'l']],
+  place: [['PLACE YOUR RING', 'l']],
+  wild:  [['★ IS <b>WILD</b>', 'm'], ['GO ANYWHERE', 'm']],
+  steal: [['LAND ON A RIVAL?', 'm'], ['<b>STEAL IT</b>', 'm']],
+  twist: [['OR <b>TWIST</b> THE CUBE', 'l']],
+  win:   [['FIVE IN A ROW WINS', 'l']],
 };
-const CAP_H = 250;
+const CAP_H = 290;
 for (const [name, lines] of Object.entries(CAPS)) {
   await cp.setViewportSize({ width: FW, height: CAP_H });
   await cp.setContent(shell(
     `body{display:flex;align-items:center;justify-content:center;text-align:center}
-     .cap{font-family:'Lilita One',Fredoka,sans-serif;line-height:1.02;letter-spacing:.01em;
+     .cap{font-family:'Lilita One',Fredoka,sans-serif;line-height:1.04;letter-spacing:.01em;
           text-shadow:0 6px 0 rgba(7,31,20,.85), 0 12px 30px rgba(0,0,0,.6)}
-     .l1{font-size:96px} .l2{font-size:78px}
-     .l1 b,.l2 b{color:#ffd34d}`,
-    `<div class="cap">${lines.map((t, i) => `<div class="${lines.length === 1 ? 'l1' : i === 0 ? 'l2' : 'l2'}">${t.replace(/(RINGO|WILD|STEAL IT|TWIST|CUBE)/, '<b>$1</b>')}</div>`).join('')}</div>`,
+     .xl{font-size:118px} .l{font-size:96px} .m{font-size:78px} .s{font-size:50px;letter-spacing:.06em;opacity:.95}
+     b{color:#ffd34d}`,
+    `<div class="cap">${lines.map(([t, k]) => `<div class="${k}">${t}</div>`).join('')}</div>`,
     true));
   await cp.waitForTimeout(600);
   await cp.screenshot({ path: `${OUT}/cap-${name}.png`, omitBackground: true });
@@ -231,7 +232,8 @@ await cp.setContent(shell(
   `${RINGS}<div><img class="logo" src="${URL}icons/icon-512.png"><h1>RINGO <b>3D</b></h1>
    <div class="url">ringo3d.beelinemicrosystems.com</div>
    <img class="badge" src="${BADGE}">
-   <div class="note">Free. No ads, no accounts.</div></div>`));
+   <div class="note">Free. No ads, no accounts.</div>
+   <div class="note" style="margin-top:14px;opacity:.9">A fun game that challenges your mind. Worth a look.</div></div>`));
 await cp.waitForTimeout(1200);
 await cp.screenshot({ path: `${OUT}/card-end.png` });
 await cards.close();
