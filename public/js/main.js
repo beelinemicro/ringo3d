@@ -38,20 +38,6 @@ const SCREENS = ['screen-menu', 'screen-setup', 'screen-lobby', 'screen-game'];
 function show(id) {
   SCREENS.forEach((s) => $(s).classList.toggle('hidden', s !== id));
   if (id === 'screen-menu') fitMenu();
-  if (id === 'screen-game') renderRoomTag();
-}
-
-// Which room you are in, in the game header. An open room has a name; a
-// private one is known by its code, which is the thing you'd share. Titles
-// are written by other players, so this goes in as text, never markup.
-function renderRoomTag() {
-  const el = $('room-tag');
-  const online = (mode === 'online' || mode === 'watch') && net && net.code;
-  el.classList.toggle('hidden', !online);
-  if (!online) return;
-  const name = (net.title || '').trim();
-  el.textContent = name || `Room ${net.code}`;
-  el.title = name ? `${name} — room ${net.code}` : `Room ${net.code}`;
 }
 
 // The menu keeps its roomy spacing unless it would overflow the viewport —
@@ -1253,7 +1239,6 @@ function handleServer(msg) {
     case 'watching': {
       mode = 'watch';
       net.code = msg.code;
-      net.title = msg.title || '';
       net.myIndex = null;
       net.isHost = false;
       rejoinAttempts = 0;
@@ -1290,7 +1275,6 @@ function handleServer(msg) {
       watchInfo = null;
       rejoinAttempts = 0;
       net.code = msg.code;
-      net.title = msg.title || '';
       net.myIndex = msg.you;
       net.isHost = msg.you === msg.host;
       saveSeat(msg.code, msg.token); // back in the chair; no longer stepped out
@@ -1334,7 +1318,6 @@ function handleServer(msg) {
       mode = 'online';
       startLiveBeat();
       net.code = msg.code;
-      net.title = msg.title || '';
       net.myIndex = msg.you;
       net.isHost = msg.you === msg.host;
       rejoinAttempts = 0;

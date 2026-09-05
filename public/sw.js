@@ -6,7 +6,7 @@
 // the last version you played. Successful fetches refresh the cache as
 // you go.
 
-const CACHE = 'ringo3d-v8';
+const CACHE = 'ringo3d-v7';
 
 const CORE = [
   '/',
