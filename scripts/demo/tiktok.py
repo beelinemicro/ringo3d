@@ -69,12 +69,15 @@ shout = max(b("ringo", 0.05), win_end + 0.15)
 voice.append((os.path.join(ROOT, "public", "audio", "ringo.mp3"), shout))
 print(f"  RINGO shout at {shout:.2f}s (banner {b('ringo'):.2f}s)")
 
-# A caption lives as long as the line it belongs to.
+# A caption lives as long as the line it belongs to — but never into the
+# next caption, which would draw the two on top of each other.
 caps = []
 for n, t in cues:
     p = os.path.join(WORK, f"cap-{n}.png")
     if os.path.exists(p):
-        caps.append((p, max(0.0, t - 0.2), t + length(os.path.join(WORK, "voice", f"{n}.mp3")) + 0.7))
+        caps.append([p, max(0.0, t - 0.2), t + length(os.path.join(WORK, "voice", f"{n}.mp3")) + 0.7])
+for a, b_ in zip(caps, caps[1:]):
+    a[2] = min(a[2], b_[1] - 0.12)
 
 inputs = ["-loop", "1", "-t", f"{total}", "-i", os.path.join(WORK, "bg.png"),
           "-i", GAME,
