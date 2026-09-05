@@ -54,7 +54,7 @@ def detect_beats(video, names):
 FW, FH = 1080, 1920
 GW, GH, GX, GY = 900, 1315, 90, 300      # the game inside the frame
 CAP_Y = 8                                 # caption band (captions are 290 tall; game starts at 300)
-END, XF = 6.8, 0.5                        # end card long enough for the loop line
+END, XF = 4.6, 0.5                        # end card: a beat to read it, then the loop line
 GAP = 0.3
 
 beats = detect_beats(GAME, meta["order"])
@@ -69,7 +69,7 @@ total = end_at + END
 b = lambda n, off=0.0: beats[n] - beats["hook"] + off
 
 cues = [
-    ("hook",  b("hook", 0.25)),
+    ("hook",  b("hook", 0.2)),
     ("roll",  b("roll", 0.15)),
     ("place", b("place", 0.15)),
     ("wild",  b("wild", 0.25)),
@@ -77,7 +77,8 @@ cues = [
     ("twist", b("twist", 0.35)),
     ("win",   b("ringo") - length(os.path.join(WORK, "voice", "win.mp3")) - 0.3),
     ("outro", b("ringo", 1.3)),           # over the confetti, after the shout
-    ("loop",  end_at + 0.5),              # over the end card; hands off to the hook
+    # Trails off just before the cut so the loop completes the sentence.
+    ("loop",  total - length(os.path.join(WORK, "voice", "loop.mp3")) - 0.25),
 ]
 
 # No line may start before the previous one has finished.

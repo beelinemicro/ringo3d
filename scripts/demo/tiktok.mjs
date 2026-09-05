@@ -232,8 +232,7 @@ await cp.setContent(shell(
   `${RINGS}<div><img class="logo" src="${URL}icons/icon-512.png"><h1>RINGO <b>3D</b></h1>
    <div class="url">ringo3d.beelinemicrosystems.com</div>
    <img class="badge" src="${BADGE}">
-   <div class="note">Free. No ads, no accounts.</div>
-   <div class="note" style="margin-top:14px;opacity:.9">A fun game that challenges your mind. Worth a look.</div></div>`));
+   <div class="note">Free. No ads, no accounts.</div></div>`));
 await cp.waitForTimeout(1200);
 await cp.screenshot({ path: `${OUT}/card-end.png` });
 await cards.close();

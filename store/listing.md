@@ -188,10 +188,11 @@ age-restricted, ads off, "not made for kids".
 
 ## TikTok / Reels / Shorts (the vertical cut)
 
-`ringo3d-tiktok-vertical.mp4` — 1080x1920, 63s, captions burned in because
-most of TikTok watches on mute. Opens with one sentence of context over the
-fanning cube and closes with a line that hands off to the opening, so the
-auto-loop reads as continuous. Rebuild with:
+`ringo3d-tiktok-vertical.mp4` — 1080x1920, 60s, captions burned in because
+most of TikTok watches on mute. One sentence straddles the loop point: it
+closes on "So, it is our great honor to be..." and the auto-loop completes
+it with the opening "Introducing you to RINGO 3D, where the object is five
+in a row, through a cube." Rebuild with:
 
     PORT=8081 node server.js &
     python3 scripts/demo/narration.py build/tiktok/voice --tiktok
