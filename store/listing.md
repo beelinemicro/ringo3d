@@ -185,3 +185,33 @@ Tags (comma-separated, in the Tags box): RINGO 3D, board game, family board game
 
 Upload settings Play requires: Public or Unlisted, embedding allowed, not
 age-restricted, ads off, "not made for kids".
+
+## TikTok / Reels / Shorts (the vertical cut)
+
+`ringo3d-tiktok-vertical.mp4` — 1080x1920, 61s, captions burned in because
+most of TikTok watches on mute. Rebuild with:
+
+    PORT=8081 node server.js &
+    python3 scripts/demo/narration.py build/tiktok/voice --tiktok
+    node scripts/demo/tiktok.mjs build/tiktok
+    python3 scripts/demo/tiktok.py build/tiktok build/tiktok/vertical.mp4
+
+Caption (TikTok allows 2200 characters; the first line is what shows):
+
+    Dad invented this board game at the kitchen table. I turned it into a cube 🎲
+
+    Five in a row through a 5x5x5 cube — or all four corners of a face. Roll three dice, place your ring, steal a rival's, or twist the whole cube Rubik's-style and swing a line into place.
+
+    Free, no ads, no accounts. Link in bio 👆
+
+    #boardgame #familygame #indiegame #puzzlegame #madewithcode #rubikscube #tabletop #gamedev #dadsinvention #fyp
+
+Hashtags to rotate: #boardgame #familygame #indiegame #puzzlegame #tabletop
+#gamedev #dadsinvention #braingames #strategygame #fyp
+
+Notes
+- TikTok covers the bottom ~300px and the right ~110px with its own UI; the
+  cut leaves that clear, which is why the game sits high in the frame.
+- Same file works for Instagram Reels and YouTube Shorts (both 9:16, <=90s).
+- Sound: keep the original audio. TikTok's "add sound" would bury the
+  narration, and the captions already carry it for muted viewers.

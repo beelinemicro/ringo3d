@@ -20,6 +20,19 @@ def ssm(name):
         "--with-decryption", "--query", "Parameter.Value", "--output", "text"]).decode().strip()
 KEY = os.environ.get("ELEVENLABS_API_KEY") or ssm("/storymaker/elevenlabs-api-key")
 
+# Punchier lines for the vertical cut: TikTok rewards speed, and most of the
+# frame's talking is done by the burned-in captions.
+TIKTOK = [
+    ("hook",   "Five in a row. Through a cube."),
+    ("roll",   "Three dice: a letter, a number, a colour. They point at one space."),
+    ("place",  "Place your ring."),
+    ("wild",   "A star is wild. Anywhere you like."),
+    ("steal",  "Land on a rival's ring? Take it."),
+    ("twist",  "Or twist the cube, and swing a whole line into place."),
+    ("win",    "Five in a row, and you shout."),
+    ("outro",  "RINGO 3D. Free, on Android and the web."),
+]
+
 # Order matters only for reading; timing is decided by the recorder's beat log.
 LINES = [
     ("intro",  "This is RINGO 3D. A family board game, lifted into a cube."),
@@ -34,6 +47,9 @@ LINES = [
     ("win",    "Five in a row through the cube, or all four corners of a face, and you shout."),
     ("outro",  "Play free in your browser, or get it on Google Play."),
 ]
+
+if "--tiktok" in sys.argv:
+    LINES = TIKTOK
 
 for name, text in LINES:
     path = os.path.join(OUT, name + ".mp3")
