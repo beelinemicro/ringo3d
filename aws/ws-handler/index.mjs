@@ -229,6 +229,7 @@ async function broadcastLobby(room) {
     type: 'lobby',
     v: GAME_VERSION,
     code: room.code,
+    title: room.title || '',
     you: i,
     host: room.host,
     token: p.token, // secret; lets this player rejoin later
@@ -616,7 +617,7 @@ async function onMessage(connId, msg, ip) {
         TableName: TABLE,
         Item: { pk: `WATCH#${connId}`, code, name, ttl: ttl() },
       }));
-      await sendTo(connId, { type: 'watching', v: GAME_VERSION, code, state: room.state });
+      await sendTo(connId, { type: 'watching', v: GAME_VERSION, code, title: room.title || '', state: room.state });
       await broadcastWatchers(room);
       return;
     }
@@ -679,7 +680,7 @@ async function onMessage(connId, msg, ip) {
       if (!room.started) return broadcastLobby(room); // back in the lobby
       await sendTo(connId, {
         type: 'rejoined', v: GAME_VERSION,
-        code, you: seat, host: room.host, token,
+        code, title: room.title || '', you: seat, host: room.host, token,
       });
       await broadcastState(room, { kind: 'rejoined', name });
       await refreshRooms(room);
@@ -915,7 +916,7 @@ async function onMessage(connId, msg, ip) {
           await mapConnection(p.connectionId, room.code, p.idx);
           await sendTo(p.connectionId, {
             type: 'rejoined', v: GAME_VERSION,
-            code: room.code, you: p.idx, host: room.host, token: p.token,
+            code: room.code, title: room.title || '', you: p.idx, host: room.host, token: p.token,
           });
         }));
         await broadcastQueue(room, true); // whoever is still waiting learns they missed this one

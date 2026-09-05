@@ -1887,12 +1887,12 @@ body::before {
   .game-header {
     display: grid;
     grid-template-columns: auto 1fr auto;
-    grid-template-areas: 'menu watch mute' 'chips chips chips';
+    grid-template-areas: 'menu mid mute' 'chips chips chips';
     gap: 6px;
   }
   #btn-quit { grid-area: menu; }
   .sound-btns { grid-area: mute; }
-  #watch-count { grid-area: watch; justify-self: end; }
+  #header-mid { grid-area: mid; justify-self: end; min-width: 0; }
   .player-chips { grid-area: chips; gap: 6px; }
   .chip { padding: 5px 11px 5px 8px; font-size: 0.85rem; gap: 6px; border-width: 1.5px; }
   .chip.active { transform: scale(1.04); }
@@ -2086,4 +2086,32 @@ body::before {
   text-align: center;
   font-size: 0.92rem;
   opacity: 0.7;
+}
+
+/* ---- room name in the game header (online + watching) ------------------ */
+.header-mid {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0; /* so the room name may ellipsis rather than push the row */
+}
+.room-tag {
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1.5px solid rgba(255, 255, 255, 0.22);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+.room-tag.hidden { display: none; }
+
+@media (max-width: 640px) {
+  .room-tag { max-width: 38vw; font-size: 0.76rem; padding: 4px 9px; }
+  .header-mid { gap: 6px; }
 }

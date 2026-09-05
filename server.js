@@ -240,6 +240,7 @@ function broadcastLobby(room) {
       type: 'lobby',
       v: GAME_VERSION,
       code: room.code,
+      title: room.title || '',
       you: i,
       host: room.host,
       token: room.players[i].token, // secret; lets this player rejoin later
@@ -427,7 +428,7 @@ function handleMessage(ws, msg) {
       r.state.players[idx].disconnected = false;
       sendTo(ws, {
         type: 'rejoined', v: GAME_VERSION,
-        code: r.code, you: idx, host: r.host, token,
+        code: r.code, title: r.title || '', you: idx, host: r.host, token,
       });
       broadcastState(r, { kind: 'rejoined', name: r.players[idx].name });
       if (r.watchers.length) broadcastWatchers(r); // rejoiner's fresh board re-shows the 👀 badge
@@ -479,7 +480,7 @@ function handleMessage(ws, msg) {
       ws.watchCode = r.code;
       ws.watchName = cleanName(msg.name || 'Watcher');
       r.watchers.push(ws);
-      sendTo(ws, { type: 'watching', v: GAME_VERSION, code: r.code, state: r.state });
+      sendTo(ws, { type: 'watching', v: GAME_VERSION, code: r.code, title: r.title || '', state: r.state });
       broadcastWatchers(r);
       break;
     }
@@ -632,7 +633,7 @@ function handleMessage(ws, msg) {
         w.wantsIn = false;
         sendTo(w, {
           type: 'rejoined', v: GAME_VERSION,
-          code: room.code, you: w.playerIdx, host: room.host, token,
+          code: room.code, title: room.title || '', you: w.playerIdx, host: room.host, token,
         });
       });
       broadcastQueue(room, true); // whoever is still waiting learns they missed this one
