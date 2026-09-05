@@ -63,10 +63,22 @@ for n, t in sorted(cues, key=lambda c: c[1]):
 cues = spaced
 at = dict(cues)
 
-voice = [(os.path.join(WORK, "voice", f"{n}.mp3"), t) for n, t in cues]
+voice = [(os.path.join(WORK, "voice", f"{n}.mp3"), t, 1.0) for n, t in cues]
+
+# The game's own sound effects, at the exact frames they fired during the
+# capture (rendered offline by render-sfx.mjs). Silence bleeds attention.
+SFX_DIR = os.path.join(WORK, "sfx")
+SFX_GAIN = 1.7   # the synth is quiet next to the narration
+sfx_used = 0
+for name, t in meta.get("sfx", []):
+    path = os.path.join(SFX_DIR, f"{name}.wav")
+    tt = t - lead
+    if os.path.exists(path) and tt >= 0 and tt < game_len:
+        voice.append((path, tt, SFX_GAIN)); sfx_used += 1
+print(f"  {sfx_used} sound effects placed")
 win_end = at["win"] + length(os.path.join(WORK, "voice", "win.mp3"))
 shout = max(b("ringo", 0.05), win_end + 0.15)
-voice.append((os.path.join(ROOT, "public", "audio", "ringo.mp3"), shout))
+voice.append((os.path.join(ROOT, "public", "audio", "ringo.mp3"), shout, 1.0))
 print(f"  RINGO shout at {shout:.2f}s (banner {b('ringo'):.2f}s)")
 
 # A caption lives as long as the line it belongs to — but never into the
@@ -85,7 +97,7 @@ inputs = ["-loop", "1", "-t", f"{total}", "-i", os.path.join(WORK, "bg.png"),
           "-i", os.path.join(ROOT, "public", "audio", "mind.mp3")]
 for p, _, _ in caps:
     inputs += ["-loop", "1", "-t", f"{total}", "-i", p]
-for p, _ in voice:
+for p, _, _ in voice:
     inputs += ["-i", p]
 
 f = [
@@ -107,8 +119,8 @@ f.append(f"[main][e]xfade=transition=fade:duration={XF}:offset={end_at:.3f}[v]")
 f.append(f"[3:a]atrim=0:{total},volume=0.16,afade=t=in:d=1.2,afade=t=out:st={total - 2.2:.2f}:d=2.2[m]")
 labels = ["[m]"]
 vstart = 4 + len(caps)
-for i, (_, t) in enumerate(voice):
-    f.append(f"[{vstart + i}:a]aformat=sample_rates=44100:channel_layouts=stereo,"
+for i, (_, t, gain) in enumerate(voice):
+    f.append(f"[{vstart + i}:a]aformat=sample_rates=44100:channel_layouts=stereo,volume={gain},"
              f"adelay={int(t * 1000)}|{int(t * 1000)}[a{i}]")
     labels.append(f"[a{i}]")
 f.append("".join(labels) + f"amix=inputs={len(labels)}:normalize=0:dropout_transition=0,atrim=0:{total}[a]")

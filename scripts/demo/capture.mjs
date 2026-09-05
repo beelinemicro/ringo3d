@@ -47,6 +47,19 @@ export async function capture({ dir, width, height, url, init, initArg, warmupMs
   // virtualTimeTicksBase is the browser's monotonic clock at the moment
   // virtual time began — BeginFrame timestamps must share that base.
   const { virtualTimeTicksBase } = await cdp.send('Emulation.setVirtualTimePolicy', { policy: 'pause' });
+  // Wrap the game's sound effects so each call is logged with the page clock,
+  // which advances exactly 40 ms per frame from here on. The video has no
+  // audio of its own; the assembler re-renders these effects and lays them
+  // at these exact times.
+  await page.evaluate(async () => {
+    window.__vt0 = performance.now();
+    window.__sfx = [];
+    const m = await import('/js/sound.js');
+    for (const k of Object.keys(m.sfx)) {
+      const orig = m.sfx[k];
+      m.sfx[k] = function (...a) { window.__sfx.push([k, performance.now()]); return orig.apply(this, a); };
+    }
+  });
 
   let n = 0, ticks = virtualTimeTicksBase;
   const beats = {};
@@ -84,9 +97,11 @@ export async function capture({ dir, width, height, url, init, initArg, warmupMs
     evaluate: (fn, arg) => page.evaluate(fn, arg),
     /** Encode the frames and write the beat sheet. */
     finish: async ({ keepFrames = false } = {}) => {
+      const sfx = (await page.evaluate(() => window.__sfx.map(([k, t]) => [k, (t - window.__vt0) / 1000]))).map(([k, t]) => [k, +t.toFixed(3)]);
       await browser.close();
       execSync(`ffmpeg -v error -y -framerate ${FPS} -i ${frames}/%05d.jpg -c:v libx264 -preset fast -crf 16 -pix_fmt yuv420p ${dir}/game.mp4`);
-      writeFileSync(`${dir}/beats.json`, JSON.stringify({ fps: FPS, frames: n, beats }, null, 2));
+      writeFileSync(`${dir}/beats.json`, JSON.stringify({ fps: FPS, frames: n, beats, sfx }, null, 2));
+      console.log(`  ${sfx.length} sound effects logged`);
       if (!keepFrames) rmSync(frames, { recursive: true, force: true });
       console.log(`  ${n} frames = ${(n / FPS).toFixed(1)}s of video, rendered in ${((Date.now() - t0) / 1000).toFixed(0)}s`);
       return { beats, frames: n };
